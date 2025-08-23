@@ -132,7 +132,14 @@ export default function DashboardPage() {
   const collisionDetectionStrategy = rectIntersection;
 
   useEffect(() => {
+    // Initial data fetch
     fetchData();
+    
+    // Set up interval to fetch tickets every 15 seconds
+    const refreshInterval = setInterval(() => {
+      console.log('Auto-refreshing tickets...');
+      fetchData();
+    }, 15000); // 15 seconds
     
     // Set up WebSocket connection for real-time ticket notifications
     const setupWebSocket = () => {
@@ -198,7 +205,12 @@ export default function DashboardPage() {
     };
     
     const cleanup = setupWebSocket();
-    return cleanup;
+    
+    // Cleanup function to clear the interval and WebSocket connection
+    return () => {
+      clearInterval(refreshInterval);
+      cleanup?.();
+    };
   }, []);
 
   const fetchData = async () => {
