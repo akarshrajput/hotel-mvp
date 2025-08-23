@@ -136,7 +136,7 @@ export default function DashboardPage() {
     
     // Set up WebSocket connection for real-time ticket notifications
     const setupWebSocket = () => {
-      const wsUrl = (process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:5050').replace(/^http/, 'ws');
+      const wsUrl = 'wss://hotel-mvp-7vdz.vercel.app'; // Production WebSocket URL
       const newSocket = io(wsUrl, {
         withCredentials: true,
         transports: ['websocket'],

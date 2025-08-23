@@ -21,9 +21,9 @@ const { errorHandler } = require('./middleware/errorMiddleware');
 const app = express();
 
 // Middleware
-// Configure CORS to allow all origins and methods
+// Configure CORS to allow all origins with credentials
 const corsOptions = {
-  origin: '*',
+  origin: true, // Reflect the request origin
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: [
@@ -36,26 +36,26 @@ const corsOptions = {
     'X-Refresh-Token',
     'Access-Control-Allow-Origin',
     'Access-Control-Allow-Headers',
-    'Access-Control-Allow-Methods'
+    'Access-Control-Allow-Methods',
+    'Access-Control-Allow-Credentials'
   ],
   exposedHeaders: [
+    'Content-Length',
     'Content-Range',
     'X-Total-Count',
     'X-Access-Token',
-    'X-Refresh-Token'
+    'X-Refresh-Token',
+    'Authorization'
   ],
   maxAge: 86400, // 24 hours
   preflightContinue: false,
   optionsSuccessStatus: 204
 };
 
-// Handle preflight requests
-app.options('*', cors(corsOptions));
-
 // Apply CORS to all routes
 app.use(cors(corsOptions));
 
-// Handle preflight requests for all routes
+// Handle preflight requests
 app.options('*', cors(corsOptions));
 
 app.use(express.json());
