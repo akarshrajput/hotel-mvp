@@ -21,17 +21,21 @@ const { errorHandler } = require('./middleware/errorMiddleware');
 const app = express();
 
 // Middleware
-app.use(cors({
-  origin: [
-    'http://localhost:3000', 
-    'http://localhost:3001',
-    'https://hotelflow-frontend-three.vercel.app',
-    process.env.FRONTEND_URL
-  ].filter(Boolean),
+// Configure CORS to allow all origins
+const corsOptions = {
+  origin: '*', // Allow all origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Total-Count'],
+  maxAge: 600 // 10 minutes
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions)); // Enable preflight for all routes
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
