@@ -21,20 +21,48 @@ const { errorHandler } = require('./middleware/errorMiddleware');
 const app = express();
 
 // Middleware
-// Configure CORS to allow all origins
+// Configure CORS to allow all origins with enhanced security
+const allowedOrigins = ['*'];
+
 const corsOptions = {
-  origin: '*', // Allow all origins
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if the origin is in the allowed list or if it's a wildcard
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Range', 'X-Total-Count'],
-  maxAge: 600 // 10 minutes
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'X-Access-Token',
+    'X-Refresh-Token'
+  ],
+  exposedHeaders: [
+    'Content-Range',
+    'X-Total-Count',
+    'X-Access-Token',
+    'X-Refresh-Token'
+  ],
+  maxAge: 600, // 10 minutes
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
+// Apply CORS to all routes
 app.use(cors(corsOptions));
 
-// Handle preflight requests
-app.options('*', cors(corsOptions)); // Enable preflight for all routes
+// Handle preflight requests for all routes
+app.options('*', cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -92,7 +120,8 @@ app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to GuestFlow API',
     version: '1.0.0',
-    documentation: '/api-docs', // Will add API documentation later
+    status: 'running',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -107,4 +136,13 @@ app.use((req, res, next) => {
 // Error handling middleware
 app.use(errorHandler);
 
+// For local development
+if (require.main === module) {
+  const PORT = process.env.PORT || 10000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+// Export the configured app for Netlify functions
 module.exports = app;

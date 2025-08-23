@@ -1,54 +1,93 @@
 const { builder } = require('@netlify/functions');
 const express = require('express');
 const serverless = require('serverless-http');
+
+// Import the configured Express app
 const app = require('../../app');
 
-// Create a serverless-http wrapper for the Express app
-const expressHandler = serverless(app);
-
-// Create the Netlify Function handler
-const netlifyHandler = async (event, context) => {
-  // Add CORS headers for preflight requests
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
-      },
-      body: ''
-    };
+// Create serverless handler
+const handler = serverless(app, {
+  request: (req, event, context) => {
+    // Add Netlify function context to request object
+    req.context = context;
+    req.lambdaEvent = event;
   }
+});
+
+// Main handler function
+const netlifyHandler = async (event, context) => {
+  // Log incoming request
+  console.log('Incoming request:', {
+    path: event.path,
+    httpMethod: event.httpMethod,
+    query: event.queryStringParameters,
+    headers: event.headers,
+    body: event.body
+  });
 
   try {
-    // Call the Express app handler
-    const response = await expressHandler(event, context);
+    // Handle preflight requests
+    if (event.httpMethod === 'OPTIONS') {
+      return {
+        statusCode: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD',
+          'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Max-Age': '86400'
+        },
+        body: ''
+      };
+    }
+
+    // Process the request
+    const response = await handler(event, context);
     
-    // Add CORS headers to the response
-    response.headers = {
-      ...response.headers,
+    // Ensure response has headers
+    if (!response.headers) {
+      response.headers = {};
+    }
+
+    // Add CORS headers
+    const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD',
+      'Access-Control-Allow-Credentials': 'true'
     };
-    
-    return response;
-  } catch (error) {
-    console.error('Error in serverless function:', error);
+
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal Server Error' }),
+      ...response,
+      headers: {
+        ...response.headers,
+        ...corsHeaders
+      }
+    };
+  } catch (error) {
+    console.error('Unhandled error:', error);
+    
+    // Format error response
+    const statusCode = error.statusCode || 500;
+    const errorResponse = {
+      error: error.name || 'Internal Server Error',
+      message: error.message || 'An unexpected error occurred',
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+    };
+
+    return {
+      statusCode,
+      body: JSON.stringify(errorResponse),
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Credentials': 'true'
       }
     };
   }
 };
 
-// Export the builder-wrapped handler for Netlify Functions
-const handler = builder(netlifyHandler);
-module.exports = { handler };
+// Export the handler with Netlify's builder
+module.exports.handler = builder(netlifyHandler);
