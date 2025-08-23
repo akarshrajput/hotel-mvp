@@ -14,6 +14,15 @@ const handler = serverless(app, {
   }
 });
 
+// CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD',
+  'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Max-Age': '86400' // 24 hours
+};
+
 // Main handler function
 const netlifyHandler = async (event, context) => {
   // Log incoming request
@@ -25,21 +34,18 @@ const netlifyHandler = async (event, context) => {
     body: event.body
   });
 
+  // Handle preflight requests
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers: {
+        ...corsHeaders
+      },
+      body: ''
+    };
+  }
+
   try {
-    // Handle preflight requests
-    if (event.httpMethod === 'OPTIONS') {
-      return {
-        statusCode: 204,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD',
-          'Access-Control-Allow-Credentials': 'true',
-          'Access-Control-Max-Age': '86400'
-        },
-        body: ''
-      };
-    }
 
     // Process the request
     const response = await handler(event, context);
@@ -49,20 +55,15 @@ const netlifyHandler = async (event, context) => {
       response.headers = {};
     }
 
-    // Add CORS headers
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD',
-      'Access-Control-Allow-Credentials': 'true'
+    // Ensure response has headers
+    const responseHeaders = {
+      ...corsHeaders,
+      ...(response.headers || {})
     };
 
     return {
       ...response,
-      headers: {
-        ...response.headers,
-        ...corsHeaders
-      }
+      headers: responseHeaders
     };
   } catch (error) {
     console.error('Unhandled error:', error);

@@ -4,20 +4,48 @@ const { Server } = require('socket.io');
 const ticketCleanupService = require('./services/ticketCleanupService');
 
 // Get port from environment and store in Express.
-const port = process.env.PORT || 10000;
+const port = process.env.PORT || 5050;
 app.set('port', port);
 
 // Create HTTP server.
 const server = http.createServer(app);
 
+// Handle server errors
+server.on('error', (error) => {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  // Handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(`Port ${port} requires elevated privileges`);
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(`Port ${port} is already in use`);
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+});
+
 // Initialize Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
-    methods: ['GET', 'POST'],
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: '*',
     credentials: true
   },
-  allowEIO3: true
+  allowEIO3: true,
+  transports: ['websocket'],
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  cookie: false,
+  serveClient: false,
+  path: '/socket.io/'
 });
 
 // WebSocket connection handler
@@ -45,9 +73,10 @@ io.on('connection', (socket) => {
 // Make io accessible in app
 app.set('io', io);
 
-// Listen on provided port, on all network interfaces.
+// Start the server
 server.listen(port, () => {
   console.log(`Server running on port ${port}`);
+  console.log('WebSocket server is running');
   
   // Start the ticket cleanup service
   ticketCleanupService.start();

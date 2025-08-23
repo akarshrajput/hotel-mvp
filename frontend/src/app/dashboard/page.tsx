@@ -136,10 +136,16 @@ export default function DashboardPage() {
     
     // Set up WebSocket connection for real-time ticket notifications
     const setupWebSocket = () => {
-      const newSocket = io('http://localhost:5050', {
-        transports: ['websocket', 'polling'],
-        timeout: 20000,
+      const wsUrl = (process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:5050').replace(/^http/, 'ws');
+      const newSocket = io(wsUrl, {
+        withCredentials: true,
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 10000,
         forceNew: true,
+        path: '/socket.io/',
       });
       
       newSocket.on('connect', () => {

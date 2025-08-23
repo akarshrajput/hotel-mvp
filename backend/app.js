@@ -21,21 +21,9 @@ const { errorHandler } = require('./middleware/errorMiddleware');
 const app = express();
 
 // Middleware
-// Configure CORS to allow all origins with enhanced security
-const allowedOrigins = ['*'];
-
+// Configure CORS to allow all origins and methods
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Check if the origin is in the allowed list or if it's a wildcard
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: '*',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: [
@@ -45,7 +33,10 @@ const corsOptions = {
     'Accept',
     'Origin',
     'X-Access-Token',
-    'X-Refresh-Token'
+    'X-Refresh-Token',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Allow-Methods'
   ],
   exposedHeaders: [
     'Content-Range',
@@ -53,10 +44,13 @@ const corsOptions = {
     'X-Access-Token',
     'X-Refresh-Token'
   ],
-  maxAge: 600, // 10 minutes
+  maxAge: 86400, // 24 hours
   preflightContinue: false,
   optionsSuccessStatus: 204
 };
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 
 // Apply CORS to all routes
 app.use(cors(corsOptions));
@@ -136,12 +130,15 @@ app.use((req, res, next) => {
 // Error handling middleware
 app.use(errorHandler);
 
-// For local development
+// Only start the server if this file is run directly (not required as a module)
 if (require.main === module) {
-  const PORT = process.env.PORT || 10000;
+  const PORT = process.env.PORT || 5050;
   app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`App server running on port ${PORT}`);
   });
+} else {
+  // Export the app for server.js to use
+  module.exports = app;
 }
 
 // Export the configured app for Netlify functions
