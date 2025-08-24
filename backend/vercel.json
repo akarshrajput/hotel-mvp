@@ -8,10 +8,25 @@
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "/server.js",
+      "headers": {
+        "Access-Control-Allow-Origin": "https://hotelflow-frontend-three.vercel.app",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Credentials": "true"
+      }
+    },
+    {
       "src": "/(.*)",
       "dest": "/server.js"
     }
   ],
+  "functions": {
+    "server.js": {
+      "maxDuration": 30
+    }
+  },
   "env": {
     "NODE_ENV": "production"
   },
