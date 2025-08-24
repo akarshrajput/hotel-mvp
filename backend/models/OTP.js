@@ -32,8 +32,10 @@ const otpSchema = new mongoose.Schema({
     max: 5, // Maximum attempts allowed
   },
   registrationData: {
-    type: Object,
-    default: null,
+    name: String,
+    hotelName: String,
+    email: String,
+    password: String,
   },
 }, {
   timestamps: true,

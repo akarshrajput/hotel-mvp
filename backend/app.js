@@ -24,25 +24,11 @@ const { initializeOTPCleanup } = require('./services/otpCleanupService');
 const app = express();
 
 // Middleware
-// Simple CORS - allow all origins with credentials
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Allow all origins
-    callback(null, true);
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-};
-
-// Apply CORS to all routes
-app.use(cors(corsOptions));
-
-// Log CORS configuration on startup
-console.log('🌐 CORS: Simple configuration - all origins allowed');
+// ✅ Enable CORS for every route & every origin with credentials support
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -78,6 +64,45 @@ app.get('/health', (req, res) => {
       allowed: true
     }
   });
+});
+
+// Test registration endpoint for debugging
+app.post('/test-register', (req, res) => {
+  console.log('🧪 Test registration request:', {
+    body: req.body,
+    headers: req.headers
+  });
+  
+  try {
+    const { name, hotelName, email, password } = req.body;
+    
+    // Test data validation
+    if (!name || !hotelName || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+        received: { name: !!name, hotelName: !!hotelName, email: !!email, password: !!password }
+      });
+    }
+    
+    // Test data structure
+    const testData = { name, hotelName, email, password: '***' };
+    console.log('✅ Test data structure valid:', testData);
+    
+    res.json({
+      success: true,
+      message: 'Test registration data received successfully',
+      data: testData
+    });
+    
+  } catch (error) {
+    console.error('❌ Test registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Test registration failed',
+      error: error.message
+    });
+  }
 });
 
 // MongoDB connection

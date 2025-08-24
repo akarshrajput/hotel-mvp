@@ -34,15 +34,8 @@ server.on('error', (error) => {
 // Initialize Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-      
-      // Allow all origins
-      callback(null, true);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+    origin: true,  // Allow all origins
+    credentials: true  // Support credentials
   },
   allowEIO3: true,
   transports: ['websocket', 'polling'], // Allow both websocket and polling
@@ -91,7 +84,7 @@ server.listen(port, () => {
   console.log('WebSocket server is running');
   
   // Log Socket.IO CORS configuration
-  console.log('🔌 Socket.IO CORS: Simple configuration - all origins allowed');
+  console.log('🔌 Socket.IO CORS: All origins allowed');
   
   // Start the ticket cleanup service
   ticketCleanupService.start();

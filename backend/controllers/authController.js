@@ -5,12 +5,25 @@ const OTP = require('../models/OTP');
 const { sendOTPEmail } = require('../utils/emailService');
 
 // Initialize Supabase client with email confirmation disabled
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-  auth: {
-    autoConfirmEmail: true,
-    detectSessionInUrl: false,
+let supabase;
+try {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+    console.error('❌ Supabase environment variables missing:', {
+      SUPABASE_URL: !!process.env.SUPABASE_URL,
+      SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY
+    });
+  } else {
+    supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+      auth: {
+        autoConfirmEmail: true,
+        detectSessionInUrl: false,
+      }
+    });
+    console.log('✅ Supabase client initialized successfully');
   }
-});
+} catch (supabaseError) {
+  console.error('❌ Failed to initialize Supabase client:', supabaseError);
+}
 
 // @desc    Register a hotel manager (Step 1: Send OTP)
 // @route   POST /api/auth/register
@@ -58,10 +71,22 @@ exports.register = async (req, res) => {
 
     // Store registration data temporarily (you might want to use Redis in production)
     // For now, we'll store it in the OTP record
-    console.log('Storing registration data in OTP record');
-    otpRecord.registrationData = { name, hotelName, email, password };
-    await otpRecord.save();
-    console.log('Registration data stored successfully');
+    console.log('Storing registration data in OTP record:', { name, hotelName, email, password: '***' });
+    
+    try {
+      otpRecord.registrationData = { name, hotelName, email, password };
+      await otpRecord.save();
+      console.log('Registration data stored successfully');
+    } catch (saveError) {
+      console.error('Failed to save registration data:', saveError);
+      // Delete the OTP record if we can't save the data
+      await OTP.findByIdAndDelete(otpRecord._id);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to process registration data. Please try again.',
+        error: process.env.NODE_ENV === 'development' ? saveError.message : undefined
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -72,6 +97,17 @@ exports.register = async (req, res) => {
 
   } catch (error) {
     console.error('Registration error:', error);
+    
+    // Log more details for debugging
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      keyPattern: error.keyPattern,
+      keyValue: error.keyValue
+    });
+    
     return res.status(500).json({ 
       success: false,
       message: 'Server error during registration',
