@@ -74,7 +74,7 @@ exports.createRoom = async (req, res, next) => {
     const room = await Room.create(req.body);
 
     // Generate QR code for the room
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://hotelflow-frontend-three.vercel.app';
     const roomUrl = `${frontendUrl}/hotel/${room.number}`;
     
     try {
@@ -292,7 +292,7 @@ exports.generateQRCode = async (req, res, next) => {
       return next(new ErrorResponse(`Room not found with id of ${req.params.id}`, 404));
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://hotelflow-frontend-three.vercel.app';
     const roomUrl = `${frontendUrl}/hotel/${room.number}`;
     
     const qrCodeDataUrl = await QRCode.toDataURL(roomUrl, {

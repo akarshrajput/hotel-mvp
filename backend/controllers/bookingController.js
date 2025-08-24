@@ -288,7 +288,7 @@ exports.generateGuestLink = async (req, res) => {
     const qrCodeUrl = await QRCode.toDataURL(JSON.stringify(qrCodeData));
 
     // Generate a shareable link
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const baseUrl = process.env.FRONTEND_URL || 'https://hotelflow-frontend-three.vercel.app';
     const guestLink = `${baseUrl}/guest/checkin?token=${token}`;
 
     res.json({
