@@ -38,31 +38,11 @@ const io = new Server(server, {
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
       
-      const allowedOrigins = [
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'https://hotel-mvp-7vdz.vercel.app',
-        'https://hotelflow-frontend-three.vercel.app'
-      ];
-      
-      // Add FRONTEND_URL from environment if it exists
-      if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
-        allowedOrigins.push(process.env.FRONTEND_URL);
-      }
-      
-      // Check if origin is in allowed list
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        // Log blocked origins for debugging
-        console.log('🚫 Socket.IO CORS blocked origin:', origin);
-        console.log('✅ Allowed origins:', allowedOrigins);
-        callback(new Error('Not allowed by Socket.IO CORS'));
-      }
+      // Allow all origins
+      callback(null, true);
     },
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: '*',
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
   },
   allowEIO3: true,
   transports: ['websocket', 'polling'], // Allow both websocket and polling
@@ -111,17 +91,7 @@ server.listen(port, () => {
   console.log('WebSocket server is running');
   
   // Log Socket.IO CORS configuration
-  console.log('🔌 Socket.IO CORS Configuration:', {
-    allowedOrigins: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'https://hotel-mvp-7vdz.vercel.app',
-      'https://hotelflow-frontend-three.vercel.app',
-      ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD']
-  });
+  console.log('🔌 Socket.IO CORS: Simple configuration - all origins allowed');
   
   // Start the ticket cleanup service
   ticketCleanupService.start();

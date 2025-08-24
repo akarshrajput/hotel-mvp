@@ -8,9 +8,9 @@ exports.errorHandler = (err, req, res, next) => {
   // Log to console for dev
   console.error(err.stack);
   
-  // Handle CORS errors specifically
+  // Handle CORS errors specifically (should not occur in testing mode)
   if (err.message === 'Not allowed by CORS') {
-    console.error('🚫 CORS Error:', {
+    console.error('🚫 CORS Error (unexpected in testing mode):', {
       origin: req.headers.origin,
       method: req.method,
       path: req.path,
@@ -19,15 +19,10 @@ exports.errorHandler = (err, req, res, next) => {
     
     return res.status(403).json({
       success: false,
-      error: 'CORS: Origin not allowed',
+      error: 'CORS: Origin not allowed (unexpected in testing mode)',
       details: {
         origin: req.headers.origin,
-        allowedOrigins: [
-          'http://localhost:3000',
-          'http://localhost:3001',
-          'https://hotel-mvp-7vdz.vercel.app',
-          'https://hotelflow-frontend-three.vercel.app'
-        ]
+        note: 'CORS is configured to allow all origins'
       }
     });
   }
