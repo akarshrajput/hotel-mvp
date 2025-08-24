@@ -24,11 +24,37 @@ const { initializeOTPCleanup } = require('./services/otpCleanupService');
 const app = express();
 
 // Middleware
-// ✅ Enable CORS for every route & every origin with credentials support
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
+// ✅ Enable CORS with proper configuration for production
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // List of allowed origins
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://hotelflow-frontend-three.vercel.app',
+      'https://hotelflow-frontend-three.vercel.app'
+    ];
+    
+    // Check if origin is allowed
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      // Log blocked origins for debugging
+      console.log('🚫 CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'X-Requested-With'],
+  maxAge: 86400 // 24 hours
+};
+
+app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

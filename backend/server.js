@@ -34,8 +34,27 @@ server.on('error', (error) => {
 // Initialize Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: true,  // Allow all origins
-    credentials: true  // Support credentials
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      // List of allowed origins for WebSocket connections
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'https://hotelflow-frontend-three.vercel.app'
+      ];
+      
+      // Check if origin is allowed
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        // Log blocked origins for debugging
+        console.log('🚫 WebSocket CORS blocked origin:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true
   },
   allowEIO3: true,
   transports: ['websocket', 'polling'], // Allow both websocket and polling
