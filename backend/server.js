@@ -34,7 +34,32 @@ server.on('error', (error) => {
 // Initialize Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:3000', 'https://hotel-mvp-7vdz.vercel.app'], // Allow specific origins
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'https://hotel-mvp-7vdz.vercel.app',
+        'https://hotelflow-frontend-three.vercel.app'
+      ];
+      
+      // Add FRONTEND_URL from environment if it exists
+      if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
+        allowedOrigins.push(process.env.FRONTEND_URL);
+      }
+      
+      // Check if origin is in allowed list
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        // Log blocked origins for debugging
+        console.log('🚫 Socket.IO CORS blocked origin:', origin);
+        console.log('✅ Allowed origins:', allowedOrigins);
+        callback(new Error('Not allowed by Socket.IO CORS'));
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
     allowedHeaders: '*',
     credentials: true
@@ -84,6 +109,19 @@ app.set('io', io);
 server.listen(port, () => {
   console.log(`Server running on port ${port}`);
   console.log('WebSocket server is running');
+  
+  // Log Socket.IO CORS configuration
+  console.log('🔌 Socket.IO CORS Configuration:', {
+    allowedOrigins: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://hotel-mvp-7vdz.vercel.app',
+      'https://hotelflow-frontend-three.vercel.app',
+      ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD']
+  });
   
   // Start the ticket cleanup service
   ticketCleanupService.start();

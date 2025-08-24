@@ -7,6 +7,30 @@ exports.errorHandler = (err, req, res, next) => {
 
   // Log to console for dev
   console.error(err.stack);
+  
+  // Handle CORS errors specifically
+  if (err.message === 'Not allowed by CORS') {
+    console.error('🚫 CORS Error:', {
+      origin: req.headers.origin,
+      method: req.method,
+      path: req.path,
+      userAgent: req.headers['user-agent']
+    });
+    
+    return res.status(403).json({
+      success: false,
+      error: 'CORS: Origin not allowed',
+      details: {
+        origin: req.headers.origin,
+        allowedOrigins: [
+          'http://localhost:3000',
+          'http://localhost:3001',
+          'https://hotel-mvp-7vdz.vercel.app',
+          'https://hotelflow-frontend-three.vercel.app'
+        ]
+      }
+    });
+  }
 
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {

@@ -26,7 +26,32 @@ const app = express();
 // Middleware
 // Configure CORS to allow all origins with credentials
 const corsOptions = {
-  origin: ['http://localhost:3000', 'https://hotel-mvp-7vdz.vercel.app'], // Allow specific origins
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://hotel-mvp-7vdz.vercel.app',
+      'https://hotelflow-frontend-three.vercel.app'
+    ];
+    
+    // Add FRONTEND_URL from environment if it exists
+    if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
+      allowedOrigins.push(process.env.FRONTEND_URL);
+    }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      // Log blocked origins for debugging
+      console.log('🚫 CORS blocked origin:', origin);
+      console.log('✅ Allowed origins:', allowedOrigins);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: [
@@ -61,6 +86,46 @@ app.use(cors(corsOptions));
 // Handle preflight requests
 app.options('*', cors(corsOptions));
 
+// Log CORS configuration on startup
+console.log('🌐 CORS Configuration:', {
+  allowedOrigins: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://hotel-mvp-7vdz.vercel.app',
+    'https://hotelflow-frontend-three.vercel.app',
+    ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD']
+});
+
+// Additional CORS headers middleware for extra security
+app.use((req, res, next) => {
+  // Log CORS-related requests for debugging
+  if (req.method === 'OPTIONS' || req.headers.origin) {
+    console.log('🌐 CORS Request:', {
+      method: req.method,
+      origin: req.headers.origin,
+      path: req.path,
+      headers: req.headers
+    });
+  }
+  
+  // Set CORS headers for all responses
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Access-Token, X-Refresh-Token');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -77,6 +142,25 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Make supabase available in app
 app.set('supabase', supabase);
+
+// Health check endpoint with CORS testing
+app.get('/health', (req, res) => {
+  console.log('🏥 Health check request:', {
+    origin: req.headers.origin,
+    method: req.method,
+    userAgent: req.headers['user-agent']
+  });
+  
+  res.json({
+    success: true,
+    message: 'Server is healthy',
+    timestamp: new Date().toISOString(),
+    cors: {
+      origin: req.headers.origin,
+      allowed: true
+    }
+  });
+});
 
 // MongoDB connection
 mongoose
