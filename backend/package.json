@@ -2,10 +2,10 @@
   "name": "guestflow-backend",
   "version": "1.0.0",
   "description": "Backend API for GuestFlow - A hotel management system with guest access features",
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "NODE_ENV=development nodemon app.js",
+    "start": "node server.js",
+    "dev": "NODE_ENV=development nodemon server.js",
     "build": "echo 'No build step required for Vercel'",
     "test": "NODE_ENV=test jest --detectOpenHandles --forceExit --runInBand",
     "test:watch": "NODE_ENV=test jest --watch",
@@ -40,6 +40,7 @@
     "mongoose": "^8.0.3",
     "morgan": "^1.10.0",
     "node-cron": "^4.2.1",
+    "nodemailer": "^6.10.1",
     "qrcode": "^1.5.3",
     "serverless-http": "^3.2.0",
     "socket.io": "^4.8.1"

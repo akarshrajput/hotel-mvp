@@ -16,6 +16,15 @@ const userSchema = new mongoose.Schema(
         /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
         'Please provide a valid email',
       ],
+      set: function(email) {
+        // Handle Gmail dot normalization
+        if (email && email.includes('@gmail.com')) {
+          const [localPart, domain] = email.toLowerCase().split('@');
+          const normalizedLocalPart = localPart.replace(/\./g, '');
+          return `${normalizedLocalPart}@${domain}`;
+        }
+        return email.toLowerCase();
+      }
     },
     hotelName: {
       type: String,

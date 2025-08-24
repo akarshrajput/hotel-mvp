@@ -45,7 +45,7 @@ import {
 import { apiClient } from '@/lib/api/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
-import { io, Socket } from 'socket.io-client';
+import io from 'socket.io-client';
 
 interface Message {
   _id: string;
@@ -119,7 +119,7 @@ export default function DashboardPage() {
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [socket, setSocket] = useState<any>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -143,29 +143,47 @@ export default function DashboardPage() {
     
     // Set up WebSocket connection for real-time ticket notifications
     const setupWebSocket = () => {
-      const wsUrl = 'wss://hotel-mvp-7vdz.vercel.app'; // Production WebSocket URL
+      // Use local WebSocket URL for development, production URL for production
+      const wsUrl = process.env.NODE_ENV === 'development' 
+        ? 'http://localhost:5050' 
+        : 'wss://hotel-mvp-7vdz.vercel.app';
+      
+      console.log('🔌 Connecting to WebSocket:', wsUrl);
+      console.log('🔌 NODE_ENV:', process.env.NODE_ENV);
+      
       const newSocket = io(wsUrl, {
-        withCredentials: true,
-        transports: ['websocket'],
+        transports: ['polling', 'websocket'], // Try polling first, then websocket
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
-        timeout: 10000,
+        timeout: 20000, // Increased timeout
         forceNew: true,
         path: '/socket.io/',
+        upgrade: true,
+        rememberUpgrade: true,
       });
       
       newSocket.on('connect', () => {
         console.log('🔗 Connected to WebSocket server');
+        console.log('🔗 Socket ID:', newSocket.id);
         // Join managers room to receive new ticket notifications
         newSocket.emit('joinManagersRoom', 'manager');
       });
 
-      newSocket.on('connect_error', (error) => {
+      newSocket.on('connect_error', (error: any) => {
         console.error('❌ WebSocket connection error:', error);
+        console.error('❌ Error details:', {
+          message: error.message,
+          type: error.type,
+          description: error.description
+        });
       });
 
-      newSocket.on('newTicket', (data) => {
+      newSocket.on('error', (error: any) => {
+        console.error('❌ Socket error:', error);
+      });
+
+      newSocket.on('newTicket', (data: any) => {
         console.log('📨 New ticket received:', data);
         
         // Show toast notification
@@ -425,280 +443,269 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 h-full">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Service Dashboard</h1>
-          <p className="text-muted-foreground">Hotel Management System • {new Date().toLocaleDateString('en-US')}</p>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-6 py-8 space-y-8">
+        {/* Enhanced Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight text-foreground">
+              Service Dashboard
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              Manage guest requests and hotel operations
+            </p>
+          </div>
+          
         </div>
-        <div className="flex items-center gap-2">
-          <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Room
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Room</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="roomNumber">Room Number</Label>
-                  <Input
-                    id="roomNumber"
-                    value={newRoom.number}
-                    onChange={(e) => setNewRoom(prev => ({ ...prev, number: e.target.value }))}
-                    placeholder="e.g., 432"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="roomType">Room Type</Label>
-                  <Input
-                    id="roomType"
-                    value={newRoom.type}
-                    onChange={(e) => setNewRoom(prev => ({ ...prev, type: e.target.value }))}
-                    placeholder="e.g., Deluxe, Standard"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="floor">Floor</Label>
-                  <Input
-                    id="floor"
-                    type="number"
-                    value={newRoom.floor}
-                    onChange={(e) => setNewRoom(prev => ({ ...prev, floor: parseInt(e.target.value) || 1 }))}
-                    min="1"
-                  />
-                </div>
-                <Button onClick={handleAddRoom} className="w-full">
-                  Add Room
-                </Button>
+
+        {/* Enhanced Stats Cards */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <MessageSquare className="h-4 w-4 text-primary" />
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.raisedTickets + stats.inProgressTickets + stats.completedTickets}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New Requests</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.raisedTickets}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.inProgressTickets}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.completedTickets}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search tickets..."
-            className="pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2">
-          <Select value={filterPriority || 'all'} onValueChange={(value) => setFilterPriority(value === 'all' ? null : value)}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priorities</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filterRoom || 'all'} onValueChange={(value) => setFilterRoom(value === 'all' ? null : value)}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Room" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Rooms</SelectItem>
-              {rooms.map((room) => (
-                <SelectItem key={room._id} value={room.number}>
-                  Room {room.number}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {(filterPriority || filterRoom || searchQuery) && (
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setFilterPriority(null);
-                setFilterRoom(null);
-                setSearchQuery('');
-              }}
-            >
-              Clear
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Kanban Board */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={collisionDetectionStrategy}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex gap-6 overflow-x-auto pb-4 h-[calc(100vh-400px)]">
-          {/* New Requests Column */}
-          <DroppableColumn id="raised">
-            <Card className="h-full">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-semibold text-yellow-700 dark:text-yellow-400">
-                    New Requests
-                  </CardTitle>
-                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                    {stats.raisedTickets}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 h-[calc(100vh-280px)] overflow-y-auto p-2">
-                <SortableContext items={tickets.raised.map(t => t._id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {tickets.raised.map((ticket) => (
-                      <DraggableTicketCard
-                        key={ticket._id}
-                        ticket={ticket}
-                        onClick={() => setSelectedTicket(ticket)}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </CardContent>
-            </Card>
-          </DroppableColumn>
-
-          {/* In Progress Column */}
-          <DroppableColumn id="in_progress">
-            <Card className="h-full">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-semibold text-blue-700 dark:text-blue-400">
-                    In Progress
-                  </CardTitle>
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                    {stats.inProgressTickets}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 h-[calc(100vh-280px)] overflow-y-auto p-2">
-                <SortableContext items={tickets.in_progress.map(t => t._id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {tickets.in_progress.map((ticket) => (
-                      <DraggableTicketCard
-                        key={ticket._id}
-                        ticket={ticket}
-                        onClick={() => setSelectedTicket(ticket)}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </CardContent>
-            </Card>
-          </DroppableColumn>
-
-          {/* Completed Column */}
-          <DroppableColumn id="completed">
-            <Card className="h-full">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-semibold text-green-700 dark:text-green-400">
-                    Completed
-                  </CardTitle>
-                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                    {stats.completedTickets}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 h-[calc(100vh-280px)] overflow-y-auto p-2">
-                <SortableContext items={tickets.completed.map(t => t._id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {tickets.completed.map((ticket) => (
-                      <DraggableTicketCard
-                        key={ticket._id}
-                        ticket={ticket}
-                        onClick={() => setSelectedTicket(ticket)}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </CardContent>
-            </Card>
-          </DroppableColumn>
-        </div>
-
-        {/* Drag Overlay */}
-        {activeTicket && (
-          <DragOverlay>
-            <div className="bg-card border rounded-lg p-4 shadow-2xl ring-2 ring-primary/30 scale-105 rotate-2">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-medium text-sm line-clamp-2">
-                  {activeTicket.guestInfo.name} - Room {activeTicket.roomNumber}
-                </h3>
-                <Badge 
-                  variant={activeTicket.priority === 'high' ? 'destructive' : activeTicket.priority === 'medium' ? 'default' : 'secondary'}
-                  className="text-xs"
-                >
-                  {activeTicket.priority}
-                </Badge>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-foreground">
+                {stats.raisedTickets + stats.inProgressTickets + stats.completedTickets}
               </div>
-              <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-                {activeTicket.messages?.[0]?.content || 'No message'}
-              </p>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{formatDistanceToNow(new Date(activeTicket.createdAt), { addSuffix: true })}</span>
-                <div className="flex items-center gap-1">
-                  <MessageSquare className="h-3 w-3" />
-                  <span>{activeTicket.messages?.length || 0}</span>
-                </div>
+              <p className="text-xs text-muted-foreground mt-1">All time requests</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium">New Requests</CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Clock className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-foreground">
+                {stats.raisedTickets}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Awaiting response</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Clock className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-foreground">
+                {stats.inProgressTickets}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Being handled</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium">Completed</CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-foreground">
+                {stats.completedTickets}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Resolved today</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Enhanced Filters */}
+        <Card className="border shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search tickets by guest name, room number, or message content..."
+                  className="pl-10 h-11"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Select value={filterPriority || 'all'} onValueChange={(value) => setFilterPriority(value === 'all' ? null : value)}>
+                  <SelectTrigger className="w-full sm:w-[160px] h-11">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Priorities</SelectItem>
+                    <SelectItem value="high">High Priority</SelectItem>
+                    <SelectItem value="medium">Medium Priority</SelectItem>
+                    <SelectItem value="low">Low Priority</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filterRoom || 'all'} onValueChange={(value) => setFilterRoom(value === 'all' ? null : value)}>
+                  <SelectTrigger className="w-full sm:w-[160px] h-11">
+                    <SelectValue placeholder="Room" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Rooms</SelectItem>
+                    {rooms.map((room) => (
+                      <SelectItem key={room._id} value={room.number}>
+                        Room {room.number}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(filterPriority || filterRoom || searchQuery) && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setFilterPriority(null);
+                      setFilterRoom(null);
+                      setSearchQuery('');
+                    }}
+                    className="h-11"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
               </div>
             </div>
-          </DragOverlay>
-        )}
-      </DndContext>
+          </CardContent>
+        </Card>
+
+        {/* Enhanced Kanban Board */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={collisionDetectionStrategy}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-6 overflow-x-auto pb-6 h-[calc(100vh-500px)]">
+            {/* New Requests Column */}
+            <DroppableColumn id="raised">
+              <Card className="h-full border shadow-sm">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-3 w-3 rounded-full bg-primary"></div>
+                      <CardTitle className="text-lg font-semibold text-foreground">
+                        New Requests
+                      </CardTitle>
+                    </div>
+                    <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                      {stats.raisedTickets}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 h-[calc(100vh-580px)] overflow-y-auto p-3">
+                  <SortableContext items={tickets.raised.map(t => t._id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3">
+                      {tickets.raised.map((ticket) => (
+                        <DraggableTicketCard
+                          key={ticket._id}
+                          ticket={ticket}
+                          onClick={() => setSelectedTicket(ticket)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </CardContent>
+              </Card>
+            </DroppableColumn>
+
+            {/* In Progress Column */}
+            <DroppableColumn id="in_progress">
+              <Card className="h-full border shadow-sm">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-3 w-3 rounded-full bg-primary"></div>
+                      <CardTitle className="text-lg font-semibold text-foreground">
+                        In Progress
+                      </CardTitle>
+                    </div>
+                    <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                      {stats.inProgressTickets}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 h-[calc(100vh-580px)] overflow-y-auto p-3">
+                  <SortableContext items={tickets.in_progress.map(t => t._id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3">
+                      {tickets.in_progress.map((ticket) => (
+                        <DraggableTicketCard
+                          key={ticket._id}
+                          ticket={ticket}
+                          onClick={() => setSelectedTicket(ticket)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </CardContent>
+              </Card>
+            </DroppableColumn>
+
+            {/* Completed Column */}
+            <DroppableColumn id="completed">
+              <Card className="h-full border shadow-sm">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-3 w-3 rounded-full bg-primary"></div>
+                      <CardTitle className="text-lg font-semibold text-foreground">
+                        Completed
+                      </CardTitle>
+                    </div>
+                    <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                      {stats.completedTickets}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 h-[calc(100vh-580px)] overflow-y-auto p-3">
+                  <SortableContext items={tickets.completed.map(t => t._id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3">
+                      {tickets.completed.map((ticket) => (
+                        <DraggableTicketCard
+                          key={ticket._id}
+                          ticket={ticket}
+                          onClick={() => setSelectedTicket(ticket)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </CardContent>
+              </Card>
+            </DroppableColumn>
+          </div>
+
+          {/* Enhanced Drag Overlay */}
+          {activeTicket && (
+            <DragOverlay>
+              <div className="bg-card border rounded-xl p-4 shadow-2xl ring-2 ring-primary/20 scale-105 rotate-1">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-medium text-sm line-clamp-2">
+                    {activeTicket.guestInfo.name} - Room {activeTicket.roomNumber}
+                  </h3>
+                  <Badge 
+                    variant={activeTicket.priority === 'high' ? 'destructive' : activeTicket.priority === 'medium' ? 'default' : 'secondary'}
+                    className="ml-2 flex-shrink-0"
+                  >
+                    {activeTicket.priority}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-2">
+                  {activeTicket.messages[0]?.content || 'No message content'}
+                </p>
+              </div>
+            </DragOverlay>
+          )}
+        </DndContext>
+      </div>
 
       {/* Ticket Detail Dialog */}
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>

@@ -18,6 +18,12 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Debug OTP verification requests
+    if (config.url?.includes('verify-registration')) {
+      console.log('Sending OTP verification request:', config.data);
+    }
+    
     return config;
   },
   (error) => {

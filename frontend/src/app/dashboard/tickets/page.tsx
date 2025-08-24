@@ -166,24 +166,39 @@ export default function TicketsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Service Requests</h1>
-          <p className="text-muted-foreground">Manage guest service requests and tickets</p>
+    <div className="min-h-screen bg-background/50">
+      <div className="container mx-auto px-4 py-6 space-y-8">
+        {/* Enhanced Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              Service Requests
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              Manage guest service requests and tickets
+            </p>
+          </div>
         </div>
-      </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
+        {/* Enhanced Filters */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <MessageSquare className="h-4 w-4 text-primary" />
+      </div>
+              <div>
+                <CardTitle className="text-xl font-semibold">
             Tickets ({filteredTickets.length})
           </CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  Filter and search through all service requests
+                </CardDescription>
+              </div>
+            </div>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -191,51 +206,58 @@ export default function TicketsPage() {
                   placeholder="Search by guest name, room number, or ticket ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                    className="pl-10 h-11 border-0 bg-muted/50 focus:bg-background transition-colors"
                 />
               </div>
             </div>
+              <div className="flex flex-col sm:flex-row gap-3">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Status" />
+                  <SelectTrigger className="w-full sm:w-[180px] h-11 border-0 bg-muted/50 focus:bg-background transition-colors">
+                    <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="raised">New</SelectItem>
+                    <SelectItem value="raised">New Requests</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
               </SelectContent>
             </Select>
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Priority" />
+                  <SelectTrigger className="w-full sm:w-[180px] h-11 border-0 bg-muted/50 focus:bg-background transition-colors">
+                    <SelectValue placeholder="Filter by priority" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Priorities</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="high">High Priority</SelectItem>
+                    <SelectItem value="medium">Medium Priority</SelectItem>
+                    <SelectItem value="low">Low Priority</SelectItem>
               </SelectContent>
             </Select>
           </div>
+            </div>
+          </CardContent>
+        </Card>
 
+        {/* Enhanced Tickets Table */}
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Ticket ID</TableHead>
-                <TableHead>Guest</TableHead>
-                <TableHead>Room</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Messages</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="border-b bg-muted/30">
+                  <TableHead className="font-semibold">Ticket ID</TableHead>
+                  <TableHead className="font-semibold">Guest</TableHead>
+                  <TableHead className="font-semibold">Room</TableHead>
+                  <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="font-semibold">Priority</TableHead>
+                  <TableHead className="font-semibold">Created</TableHead>
+                  <TableHead className="font-semibold">Messages</TableHead>
+                  <TableHead className="text-right font-semibold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredTickets.map((ticket) => (
-                <TableRow key={ticket._id}>
-                  <TableCell className="font-mono text-sm">
+                  <TableRow key={ticket._id} className="hover:bg-muted/30 transition-colors">
+                    <TableCell className="font-mono text-sm font-medium">
                     #{ticket._id.slice(-6)}
                   </TableCell>
                   <TableCell>
@@ -246,15 +268,33 @@ export default function TicketsPage() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{ticket.roomNumber}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-medium">
+                        Room {ticket.roomNumber}
+                      </Badge>
+                    </TableCell>
                   <TableCell>
-                    <Badge className={getStatusColor(ticket.status)}>
+                      <Badge 
+                        variant={ticket.status === 'completed' ? 'default' : 'secondary'}
+                        className={`
+                          ${ticket.status === 'raised' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200' : ''}
+                          ${ticket.status === 'in_progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200' : ''}
+                          ${ticket.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200' : ''}
+                          border-0
+                        `}
+                      >
                       {ticket.status === 'raised' ? 'New' : 
                        ticket.status === 'in_progress' ? 'In Progress' : 'Completed'}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge className={getPriorityColor(ticket.priority)}>
+                      <Badge 
+                        variant="outline"
+                        className={`
+                          ${getPriorityColor(ticket.priority)}
+                          border-0 font-medium
+                        `}
+                      >
                       {ticket.priority}
                     </Badge>
                   </TableCell>
@@ -262,51 +302,51 @@ export default function TicketsPage() {
                     {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      <MessageSquare className="h-4 w-4" />
-                      <span>{ticket.messages?.length || 0}</span>
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">{ticket.messages.length}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            Change Status
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <Filter className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem onClick={() => handleStatusChange(ticket._id, 'raised')}>
-                            New
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setSelectedTicket(ticket)}>
+                            View Details
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleStatusChange(ticket._id, 'in_progress')}>
-                            In Progress
+                            Mark In Progress
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleStatusChange(ticket._id, 'completed')}>
-                            Completed
+                            Mark Completed
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedTicket(ticket)}
-                      >
-                        View Details
-                      </Button>
-                    </div>
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredTickets.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    {tickets.length === 0 ? 'No tickets found.' : 'No tickets match your filters.'}
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
+            
+            {filteredTickets.length === 0 && (
+              <div className="text-center py-16">
+                <div className="h-16 w-16 rounded-full bg-muted/50 mx-auto mb-4 flex items-center justify-center">
+                  <MessageSquare className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-medium mb-2">No tickets found</h3>
+                <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                  {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
+                    ? 'Try adjusting your search or filters to find what you\'re looking for'
+                    : 'No service requests have been created yet'
+                  }
+                </p>
+              </div>
+            )}
         </CardContent>
       </Card>
 
@@ -378,6 +418,7 @@ export default function TicketsPage() {
           )}
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

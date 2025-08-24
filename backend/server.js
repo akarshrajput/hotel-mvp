@@ -34,13 +34,13 @@ server.on('error', (error) => {
 // Initialize Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: true, // Allow all origins
+    origin: ['http://localhost:3000', 'https://hotel-mvp-7vdz.vercel.app'], // Allow specific origins
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
     allowedHeaders: '*',
     credentials: true
   },
   allowEIO3: true,
-  transports: ['websocket'],
+  transports: ['websocket', 'polling'], // Allow both websocket and polling
   pingTimeout: 60000,
   pingInterval: 25000,
   cookie: false,
@@ -50,12 +50,14 @@ const io = new Server(server, {
 
 // WebSocket connection handler
 io.on('connection', (socket) => {
-  console.log('New WebSocket connection');
+  console.log('🔗 New WebSocket connection from:', socket.handshake.address);
+  console.log('🔗 Socket ID:', socket.id);
+  console.log('🔗 Headers:', socket.handshake.headers);
 
   // Join managers room for real-time ticket notifications
   socket.on('joinManagersRoom', (managerId) => {
     socket.join('managers');
-    console.log(`Manager ${managerId} joined managers room for real-time notifications`);
+    console.log(`👥 Manager ${managerId} joined managers room for real-time notifications`);
   });
 
   // Join room for ticket updates
@@ -65,8 +67,13 @@ io.on('connection', (socket) => {
   });
 
   // Handle disconnection
-  socket.on('disconnect', () => {
-    console.log('User disconnected');
+  socket.on('disconnect', (reason) => {
+    console.log('❌ User disconnected:', reason);
+  });
+
+  // Handle errors
+  socket.on('error', (error) => {
+    console.error('❌ Socket error:', error);
   });
 });
 

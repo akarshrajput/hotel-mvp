@@ -12,6 +12,11 @@ export interface LoginData {
   password: string;
 }
 
+export interface OTPVerificationData {
+  email: string;
+  otp: string;
+}
+
 export interface AuthResponse {
   token: string;
   user: {
@@ -22,13 +27,30 @@ export interface AuthResponse {
   };
 }
 
-export const register = async (data: RegisterData): Promise<AuthResponse> => {
-  const response = await apiClient.post<AuthResponse>('/auth/register', data);
+export interface OTPResponse {
+  success: boolean;
+  message: string;
+  email: string;
+  requiresOTP: boolean;
+}
+
+export const register = async (data: RegisterData): Promise<OTPResponse> => {
+  const response = await apiClient.post<OTPResponse>('/auth/register', data);
   return response.data;
 };
 
-export const login = async (data: LoginData): Promise<AuthResponse> => {
-  const response = await apiClient.post<AuthResponse>('/auth/login', data);
+export const login = async (data: LoginData): Promise<OTPResponse> => {
+  const response = await apiClient.post<OTPResponse>('/auth/login', data);
+  return response.data;
+};
+
+export const verifyLoginOTP = async (data: OTPVerificationData): Promise<AuthResponse> => {
+  const response = await apiClient.post<AuthResponse>('/auth/verify-login', data);
+  return response.data;
+};
+
+export const verifyRegistrationOTP = async (data: OTPVerificationData): Promise<AuthResponse> => {
+  const response = await apiClient.post<AuthResponse>('/auth/verify-registration', data);
   return response.data;
 };
 

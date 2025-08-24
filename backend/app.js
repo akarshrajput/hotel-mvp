@@ -17,13 +17,16 @@ const adminRoutes = require('./routes/adminRoutes');
 // Import error handler
 const { errorHandler } = require('./middleware/errorMiddleware');
 
+// Import OTP cleanup service
+const { initializeOTPCleanup } = require('./services/otpCleanupService');
+
 // Initialize Express app
 const app = express();
 
 // Middleware
 // Configure CORS to allow all origins with credentials
 const corsOptions = {
-  origin: true, // Reflect the request origin
+  origin: ['http://localhost:3000', 'https://hotel-mvp-7vdz.vercel.app'], // Allow specific origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: [
@@ -85,7 +88,11 @@ mongoose
     retryWrites: true,
     w: 'majority'
   })
-  .then(() => console.log('✅ Connected to MongoDB'))
+  .then(() => {
+    console.log('✅ Connected to MongoDB');
+    // Initialize OTP cleanup service after MongoDB connection
+    initializeOTPCleanup();
+  })
   .catch((err) => {
     console.error('❌ MongoDB connection error:', err);
     process.exit(1);
@@ -107,6 +114,49 @@ app.get('/health', (req, res) => {
     message: 'GuestFlow API is running',
     timestamp: new Date().toISOString(),
   });
+});
+
+// Test email configuration endpoint
+app.get('/test-email', async (req, res) => {
+  try {
+    const { sendOTPEmail } = require('./utils/emailService');
+    await sendOTPEmail('test@example.com', '123456', 'login');
+    res.json({ success: true, message: 'Email service is working' });
+  } catch (error) {
+    console.error('Email test failed:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Email service failed',
+      error: error.message 
+    });
+  }
+});
+
+// Test OTP database endpoint
+app.get('/test-otp', async (req, res) => {
+  try {
+    const OTP = require('./models/OTP');
+    const otps = await OTP.find({}).sort({ createdAt: -1 }).limit(5);
+    res.json({ 
+      success: true, 
+      message: 'OTP database check',
+      otps: otps.map(otp => ({
+        email: otp.email,
+        otp: otp.otp,
+        type: otp.type,
+        isUsed: otp.isUsed,
+        expiresAt: otp.expiresAt,
+        createdAt: otp.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('OTP test failed:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'OTP database check failed',
+      error: error.message 
+    });
+  }
 });
 
 // Root endpoint

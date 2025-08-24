@@ -46,7 +46,6 @@ export default function RoomsPage() {
   const fetchRooms = async () => {
     try {
       const response = await apiClient.get('/rooms');
-      // The API returns { success: boolean, count: number, data: Room[] }
       if (response.data && response.data.success && Array.isArray(response.data.data)) {
         setRooms(response.data.data);
       } else {
@@ -101,6 +100,12 @@ export default function RoomsPage() {
     }
   };
 
+  const openCreateDialog = () => {
+    setEditingRoom(null);
+    setFormData({ number: '', type: '', floor: 1, status: 'available' });
+    setIsDialogOpen(true);
+  };
+
   const openEditDialog = (room: Room) => {
     setEditingRoom(room);
     setFormData({
@@ -109,12 +114,6 @@ export default function RoomsPage() {
       floor: room.floor,
       status: room.status
     });
-    setIsDialogOpen(true);
-  };
-
-  const openCreateDialog = () => {
-    setEditingRoom(null);
-    setFormData({ number: '', type: '', floor: 1, status: 'available' });
     setIsDialogOpen(true);
   };
 
@@ -129,7 +128,8 @@ export default function RoomsPage() {
     if (searchQuery) {
       filtered = filtered.filter(room => 
         room.number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        room.type.toLowerCase().includes(searchQuery.toLowerCase())
+        room.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        room.floor.toString().includes(searchQuery)
       );
     }
     
@@ -138,15 +138,6 @@ export default function RoomsPage() {
     }
     
     return filtered;
-  };
-
-  const getStatusColor = (status: Room['status']) => {
-    switch (status) {
-      case 'available': return 'bg-green-100 text-green-800 border-green-200';
-      case 'occupied': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'maintenance': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
   };
 
   const filteredRooms = getFilteredRooms();
@@ -160,34 +151,42 @@ export default function RoomsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Room Management</h1>
-          <p className="text-muted-foreground">Manage hotel rooms, view QR codes, and track status</p>
+    <div className="min-h-screen bg-background/50">
+      <div className="container mx-auto px-4 py-6 space-y-8">
+        {/* Enhanced Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              Room Management
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              Manage hotel rooms, view QR codes, and track status
+            </p>
         </div>
-        <Button onClick={openCreateDialog}>
+          <Button onClick={openCreateDialog} className="shadow-sm">
           <Plus className="mr-2 h-4 w-4" />
           Add Room
         </Button>
       </div>
 
-      {/* Filters and Search */}
-      <div className="flex flex-col sm:flex-row gap-4">
+        {/* Enhanced Filters and Search */}
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search rooms..."
-            className="pl-8"
+                  placeholder="Search rooms by number, type, or floor..."
+                  className="pl-10 h-11 border-0 bg-muted/50 focus:bg-background transition-colors"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-3">
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Status" />
+                  <SelectTrigger className="w-full sm:w-[180px] h-11 border-0 bg-muted/50 focus:bg-background transition-colors">
+                    <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
@@ -196,12 +195,12 @@ export default function RoomsPage() {
               <SelectItem value="maintenance">Maintenance</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex border rounded-md">
+                <div className="flex border-0 rounded-lg overflow-hidden bg-muted/50">
             <Button
               variant={viewMode === 'grid' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('grid')}
-              className="rounded-r-none"
+                    className="rounded-r-none h-11 border-0 bg-transparent hover:bg-background data-[state=on]:bg-background data-[state=on]:shadow-sm"
             >
               <Grid className="h-4 w-4" />
             </Button>
@@ -209,40 +208,50 @@ export default function RoomsPage() {
               variant={viewMode === 'list' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('list')}
-              className="rounded-l-none"
+                    className="rounded-l-none h-11 border-0 bg-transparent hover:bg-background data-[state=on]:bg-background data-[state=on]:shadow-sm"
             >
               <List className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </div>
+          </CardContent>
+        </Card>
 
-      {/* Rooms Display */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Hotel className="h-5 w-5" />
+        {/* Enhanced Rooms Display */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Hotel className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-xl font-semibold">
             Rooms ({filteredRooms.length})
           </CardTitle>
-          <CardDescription>
+                <CardDescription className="text-muted-foreground">
             Manage all hotel rooms, view QR codes, and track status
           </CardDescription>
+              </div>
+            </div>
         </CardHeader>
         <CardContent>
           {filteredRooms.length === 0 ? (
-            <div className="text-center py-12">
-              <Hotel className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <div className="text-center py-16">
+                <div className="h-16 w-16 rounded-full bg-muted/50 mx-auto mb-4 flex items-center justify-center">
+                  <Hotel className="h-8 w-8 text-muted-foreground" />
+                </div>
               <h3 className="text-lg font-medium mb-2">No rooms found</h3>
-              <p className="text-muted-foreground mb-4">
+                <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
                 {searchQuery || filterStatus !== 'all' 
-                  ? 'Try adjusting your search or filters'
-                  : 'Add your first room to get started'
+                    ? 'Try adjusting your search or filters to find what you\'re looking for'
+                    : 'Get started by adding your first room to the system'
                 }
               </p>
               {!searchQuery && filterStatus === 'all' && (
-                <Button onClick={openCreateDialog}>
+                  <Button onClick={openCreateDialog} className="shadow-sm">
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Room
+                    Add Your First Room
                 </Button>
               )}
             </div>
@@ -372,6 +381,7 @@ export default function RoomsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
