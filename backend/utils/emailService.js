@@ -20,16 +20,16 @@ const createTransporter = () => {
     return transporter;
   }
 
-  // For production, use a proper email service
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    secure: process.env.SMTP_SECURE === 'true',
+  // For production, use Gmail with app password (same as development)
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
     auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD, // Use app password for Gmail
     },
   });
+  console.log('Gmail transporter created for production');
+  return transporter;
 };
 
 // Send OTP email
@@ -152,7 +152,15 @@ const sendOTPEmail = async (email, otp, type) => {
     return result;
 
   } catch (error) {
-    console.error('Email sending error:', error);
+    console.error('📧 Email sending error details:', {
+      error: error.message,
+      stack: error.stack,
+      email: email,
+      type: type,
+      env: process.env.NODE_ENV,
+      hasUser: !!process.env.EMAIL_USER,
+      hasPassword: !!process.env.EMAIL_PASSWORD
+    });
     throw new Error('Failed to send OTP email');
   }
 };
