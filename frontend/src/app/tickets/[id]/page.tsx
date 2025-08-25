@@ -27,6 +27,7 @@ interface Ticket {
   subject: string;
   status: 'pending' | 'in_progress' | 'completed';
   priority: 'low' | 'medium' | 'high';
+  category?: 'reception' | 'housekeeping' | 'porter' | 'concierge' | 'service_fb' | 'maintenance';
   createdAt: string;
   updatedAt: string;
   messages: Message[];
@@ -55,6 +56,30 @@ export default function TicketDetailPage() {
       router.push('/tickets');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getCategoryLabel = (category?: Ticket['category']) => {
+    switch (category) {
+      case 'reception': return 'Reception';
+      case 'housekeeping': return 'Housekeeping';
+      case 'porter': return 'Porter';
+      case 'concierge': return 'Concierge';
+      case 'service_fb': return 'Service (F&B)';
+      case 'maintenance': return 'Maintenance';
+      default: return 'Reception';
+    }
+  };
+
+  const getCategoryClass = (category?: Ticket['category']) => {
+    switch (category) {
+      case 'reception': return 'bg-purple-100 text-purple-800';
+      case 'housekeeping': return 'bg-teal-100 text-teal-800';
+      case 'porter': return 'bg-sky-100 text-sky-800';
+      case 'concierge': return 'bg-pink-100 text-pink-800';
+      case 'service_fb': return 'bg-orange-100 text-orange-800';
+      case 'maintenance': return 'bg-amber-100 text-amber-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -174,6 +199,9 @@ export default function TicketDetailPage() {
         <div className="ml-auto flex items-center space-x-2">
           {getStatusBadge(ticket.status)}
           {getPriorityBadge(ticket.priority)}
+          <Badge className={`${getCategoryClass(ticket.category)} border-0`}>
+            {getCategoryLabel(ticket.category)}
+          </Badge>
         </div>
       </div>
 
@@ -269,6 +297,15 @@ export default function TicketDetailPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Priority</p>
                   <p className="mt-1">{getPriorityBadge(ticket.priority)}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground">Category</p>
+                  <div className={`mt-1 inline-flex`}>
+                    <Badge className={`${getCategoryClass(ticket.category)} border-0`}>
+                      {getCategoryLabel(ticket.category)}
+                    </Badge>
+                  </div>
                 </div>
 
                 <div>

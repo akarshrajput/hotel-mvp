@@ -18,6 +18,7 @@ import { formatDistanceToNow } from 'date-fns';
 interface Ticket {
   _id: string;
   roomNumber: string;
+  category?: 'reception' | 'housekeeping' | 'porter' | 'concierge' | 'service_fb' | 'maintenance';
   guestInfo: {
     name: string;
     email?: string;
@@ -157,6 +158,42 @@ export default function TicketsPage() {
     }
   };
 
+  const getCategoryLabel = (category?: Ticket['category']) => {
+    switch (category) {
+      case 'reception': return 'Reception';
+      case 'housekeeping': return 'Housekeeping';
+      case 'porter': return 'Porter';
+      case 'concierge': return 'Concierge';
+      case 'service_fb': return 'Service (F&B)';
+      case 'maintenance': return 'Maintenance';
+      default: return 'Reception';
+    }
+  };
+
+  const getCategoryColor = (category?: Ticket['category']) => {
+    switch (category) {
+      case 'reception': return 'bg-purple-100 text-purple-800';
+      case 'housekeeping': return 'bg-teal-100 text-teal-800';
+      case 'porter': return 'bg-sky-100 text-sky-800';
+      case 'concierge': return 'bg-pink-100 text-pink-800';
+      case 'service_fb': return 'bg-orange-100 text-orange-800';
+      case 'maintenance': return 'bg-amber-100 text-amber-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const inferCategory = (ticket: Ticket): Ticket['category'] => {
+    if (ticket.category) return ticket.category;
+    const text = `${ticket.messages?.map(m => m.content).join(' ') || ''} ${ticket.roomNumber || ''}`.toLowerCase();
+    if (/(clean|towel|linen|sheet|housekeep|trash|amenit)/.test(text)) return 'housekeeping';
+    if (/(luggage|baggage|bags|bell ?(boy|hop)|porter|trolley|cart|carry|help with bags)/.test(text)) return 'porter';
+    if (/(break|broken|leak|ac|heater|hvac|power|door|plumb|fix|repair|not working|maintenance)/.test(text)) return 'maintenance';
+    if (/(food|breakfast|dinner|lunch|menu|order|restaurant|bar|drink|beverage|room service)/.test(text)) return 'service_fb';
+    if (/(taxi|uber|cab|transport|reservation|book|tour|attraction|recommend|directions|concierge)/.test(text)) return 'concierge';
+    if (/(check[- ]?in|check[- ]?out|bill|payment|key|card|front desk|reception)/.test(text)) return 'reception';
+    return 'reception';
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -238,26 +275,27 @@ export default function TicketsPage() {
           </CardContent>
         </Card>
 
-        {/* Enhanced Tickets Table */}
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-0">
+      {/* Enhanced Tickets Table */}
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
-                <TableRow className="border-b bg-muted/30">
-                  <TableHead className="font-semibold">Ticket ID</TableHead>
-                  <TableHead className="font-semibold">Guest</TableHead>
-                  <TableHead className="font-semibold">Room</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="font-semibold">Priority</TableHead>
-                  <TableHead className="font-semibold">Created</TableHead>
-                  <TableHead className="font-semibold">Messages</TableHead>
-                  <TableHead className="text-right font-semibold">Actions</TableHead>
+              <TableRow className="border-b bg-muted/30">
+                <TableHead className="font-semibold">Ticket ID</TableHead>
+                <TableHead className="font-semibold">Guest</TableHead>
+                <TableHead className="font-semibold">Room</TableHead>
+                <TableHead className="font-semibold">Category</TableHead>
+                <TableHead className="font-semibold">Status</TableHead>
+                <TableHead className="font-semibold">Priority</TableHead>
+                <TableHead className="font-semibold">Created</TableHead>
+                <TableHead className="font-semibold">Messages</TableHead>
+                <TableHead className="text-right font-semibold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredTickets.map((ticket) => (
-                  <TableRow key={ticket._id} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-mono text-sm font-medium">
+                <TableRow key={ticket._id} className="hover:bg-muted/30 transition-colors">
+                  <TableCell className="font-mono text-sm font-medium">
                     #{ticket._id.slice(-6)}
                   </TableCell>
                   <TableCell>
@@ -268,33 +306,26 @@ export default function TicketsPage() {
                       )}
                     </div>
                   </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-medium">
-                        Room {ticket.roomNumber}
-                      </Badge>
-                    </TableCell>
                   <TableCell>
-                      <Badge 
-                        variant={ticket.status === 'completed' ? 'default' : 'secondary'}
-                        className={`
-                          ${ticket.status === 'raised' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200' : ''}
-                          ${ticket.status === 'in_progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200' : ''}
-                          ${ticket.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200' : ''}
-                          border-0
-                        `}
-                      >
-                      {ticket.status === 'raised' ? 'New' : 
-                       ticket.status === 'in_progress' ? 'In Progress' : 'Completed'}
+                    <Badge variant="outline" className="font-medium">
+                      Room {ticket.roomNumber}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                      <Badge 
-                        variant="outline"
-                        className={`
-                          ${getPriorityColor(ticket.priority)}
-                          border-0 font-medium
-                        `}
-                      >
+                    <Badge className={`${getCategoryColor(inferCategory(ticket))} border-0 font-medium`}>
+                      {getCategoryLabel(inferCategory(ticket))}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={`${getStatusColor(ticket.status)} font-medium`}>
+                      {ticket.status === 'raised' ? 'New' : ticket.status === 'in_progress' ? 'In Progress' : 'Completed'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      variant="outline"
+                      className={`${getPriorityColor(ticket.priority)} border-0 font-medium`}
+                    >
                       {ticket.priority}
                     </Badge>
                   </TableCell>
@@ -302,51 +333,51 @@ export default function TicketsPage() {
                     {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
                   </TableCell>
                   <TableCell>
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{ticket.messages.length}</span>
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{ticket.messages.length}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <Filter className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setSelectedTicket(ticket)}>
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(ticket._id, 'in_progress')}>
-                            Mark In Progress
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(ticket._id, 'completed')}>
-                            Mark Completed
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <Filter className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setSelectedTicket(ticket)}>
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange(ticket._id, 'in_progress')}>
+                          Mark In Progress
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange(ticket._id, 'completed')}>
+                          Mark Completed
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
             
-            {filteredTickets.length === 0 && (
-              <div className="text-center py-16">
-                <div className="h-16 w-16 rounded-full bg-muted/50 mx-auto mb-4 flex items-center justify-center">
-                  <MessageSquare className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-medium mb-2">No tickets found</h3>
-                <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                  {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
-                    ? 'Try adjusting your search or filters to find what you\'re looking for'
-                    : 'No service requests have been created yet'
-                  }
-                </p>
+          {filteredTickets.length === 0 && (
+            <div className="text-center py-16">
+              <div className="h-16 w-16 rounded-full bg-muted/50 mx-auto mb-4 flex items-center justify-center">
+                <MessageSquare className="h-8 w-8 text-muted-foreground" />
               </div>
-            )}
+              <h3 className="text-lg font-medium mb-2">No tickets found</h3>
+              <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
+                  ? 'Try adjusting your search or filters to find what you\'re looking for'
+                  : 'No service requests have been created yet'
+                }
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -360,7 +391,7 @@ export default function TicketsPage() {
                   Ticket #{selectedTicket._id.slice(-6)}
                 </DialogTitle>
                 <DialogDescription>
-                  Room {selectedTicket.roomNumber} • {selectedTicket.guestInfo.name}
+                  Room {selectedTicket.roomNumber} • {selectedTicket.guestInfo.name} • {getCategoryLabel(selectedTicket.category)}
                 </DialogDescription>
               </DialogHeader>
               
@@ -369,6 +400,9 @@ export default function TicketsPage() {
                   <Badge className={getStatusColor(selectedTicket.status)}>
                     {selectedTicket.status === 'raised' ? 'New' : 
                      selectedTicket.status === 'in_progress' ? 'In Progress' : 'Completed'}
+                  </Badge>
+                  <Badge className={getCategoryColor(inferCategory(selectedTicket))}>
+                    {getCategoryLabel(inferCategory(selectedTicket))}
                   </Badge>
                   <Badge className={getPriorityColor(selectedTicket.priority)}>
                     {selectedTicket.priority} priority

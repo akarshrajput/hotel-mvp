@@ -20,6 +20,7 @@ interface Ticket {
     floor?: number;
   };
   roomNumber: string;
+  category?: 'reception' | 'housekeeping' | 'porter' | 'concierge' | 'service_fb' | 'maintenance';
   guestInfo: {
     name: string;
     email?: string;
@@ -89,6 +90,42 @@ export default function TicketsPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getCategoryLabel = (category?: Ticket['category']) => {
+    switch (category) {
+      case 'reception': return 'Reception';
+      case 'housekeeping': return 'Housekeeping';
+      case 'porter': return 'Porter';
+      case 'concierge': return 'Concierge';
+      case 'service_fb': return 'Service (F&B)';
+      case 'maintenance': return 'Maintenance';
+      default: return 'Reception';
+    }
+  };
+
+  const getCategoryColor = (category?: Ticket['category']) => {
+    switch (category) {
+      case 'reception': return 'bg-purple-100 text-purple-800';
+      case 'housekeeping': return 'bg-teal-100 text-teal-800';
+      case 'porter': return 'bg-sky-100 text-sky-800';
+      case 'concierge': return 'bg-pink-100 text-pink-800';
+      case 'service_fb': return 'bg-orange-100 text-orange-800';
+      case 'maintenance': return 'bg-amber-100 text-amber-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const inferCategory = (ticket: Ticket): Ticket['category'] => {
+    if (ticket.category) return ticket.category;
+    const text = `${ticket.messages?.map(m => m.content).join(' ') || ''} ${ticket.roomNumber || ''}`.toLowerCase();
+    if (/(clean|towel|linen|sheet|housekeep|trash|amenit)/.test(text)) return 'housekeeping';
+    if (/(luggage|baggage|bags|bell ?(boy|hop)|porter|trolley|cart|carry|help with bags)/.test(text)) return 'porter';
+    if (/(break|broken|leak|ac|heater|hvac|power|door|plumb|fix|repair|not working|maintenance)/.test(text)) return 'maintenance';
+    if (/(food|breakfast|dinner|lunch|menu|order|restaurant|bar|drink|beverage|room service)/.test(text)) return 'service_fb';
+    if (/(taxi|uber|cab|transport|reservation|book|tour|attraction|recommend|directions|concierge)/.test(text)) return 'concierge';
+    if (/(check[- ]?in|check[- ]?out|bill|payment|key|card|front desk|reception)/.test(text)) return 'reception';
+    return 'reception';
   };
 
   const handleStatusChange = async (ticketId: string, newStatus: string) => {
@@ -220,6 +257,9 @@ export default function TicketsPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">{ticket.guestInfo.name}</CardTitle>
                 <div className="flex items-center gap-2">
+                  <Badge className={`${getCategoryColor(inferCategory(ticket))} border-0`}>
+                    {getCategoryLabel(inferCategory(ticket))}
+                  </Badge>
                   <Badge variant={ticket.status === 'raised' ? 'default' : ticket.status === 'in_progress' ? 'secondary' : 'outline'}>
                     {ticket.status === 'raised' ? 'Raised' : ticket.status === 'in_progress' ? 'In Progress' : 'Completed'}
                   </Badge>

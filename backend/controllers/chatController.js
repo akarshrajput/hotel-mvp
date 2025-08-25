@@ -28,6 +28,36 @@ const callMistralAI = async (messages, maxTokens = 300) => {
   }
 };
 
+// Helper: classify a free-text request into a ticket category
+// Allowed categories: reception, housekeeping, porter, concierge, service_fb, maintenance
+const classifyCategory = async (text) => {
+  const categories = ['reception', 'housekeeping', 'porter', 'concierge', 'service_fb', 'maintenance'];
+
+  // Heuristic fallback first (fast path)
+  const t = (text || '').toLowerCase();
+  if (/(clean|towel|linen|sheet|housekeep|trash|amenit)/.test(t)) return 'housekeeping';
+  if (/(luggage|baggage|bags|bell ?(boy|hop)|porter|trolley|cart|carry|help with bags)/.test(t)) return 'porter';
+  if (/(break|broken|leak|ac|heater|hvac|power|door|plumb|fix|repair|not working|maintenance)/.test(t)) return 'maintenance';
+  if (/(food|breakfast|dinner|lunch|menu|order|restaurant|bar|drink|beverage|room service)/.test(t)) return 'service_fb';
+  if (/(taxi|uber|cab|transport|reservation|book|tour|attraction|recommend|directions|concierge)/.test(t)) return 'concierge';
+  if (/(check[- ]?in|check[- ]?out|bill|payment|key|card|front desk|reception)/.test(t)) return 'reception';
+
+  // If unclear, ask Mistral for a strict one-word classification
+  try {
+    const prompt = `Classify the hotel guest request into EXACTLY one of these categories: reception, housekeeping, porter, concierge, service_fb, maintenance.\n\nRequest: "${text}"\n\nRespond with ONLY the category id (lowercase, underscore), no explanation.`;
+    const out = await callMistralAI([
+      { role: 'system', content: 'You are a strict classifier that outputs only one token from the allowed labels.' },
+      { role: 'user', content: prompt }
+    ], 5);
+    const normalized = (out || '').trim().toLowerCase();
+    if (categories.includes(normalized)) return normalized;
+  } catch (e) {
+    // ignore and fall through to default
+  }
+
+  return 'reception';
+};
+
 // @desc    Handle AI chat for guests
 // @route   POST /api/chat/ai
 // @access  Public
@@ -189,10 +219,17 @@ ${conversationHistory.map(msg =>
 
 Current Request: ${initialMessage}`;
 
+    // Determine category using AI + heuristics
+    let category = 'reception';
+    try {
+      category = await classifyCategory(initialMessage);
+    } catch (_) { /* keep default */ }
+
     // Create the ticket with conversation history
     const ticket = await Ticket.create({
       room: room._id,
       roomNumber: roomNumber,
+      category,
       guestInfo: {
         name: guestInfo.name,
         email: guestInfo.email || '',

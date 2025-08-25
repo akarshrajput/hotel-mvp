@@ -56,6 +56,43 @@ interface Message {
   timestamp?: string;
 }
 
+// Category helpers
+const getCategoryLabel = (category?: Ticket['category']) => {
+  switch (category) {
+    case 'reception': return 'Reception';
+    case 'housekeeping': return 'Housekeeping';
+    case 'porter': return 'Porter';
+    case 'concierge': return 'Concierge';
+    case 'service_fb': return 'Service (F&B)';
+    case 'maintenance': return 'Maintenance';
+    default: return 'Reception';
+  }
+};
+
+const getCategoryColor = (category?: Ticket['category']) => {
+  switch (category) {
+    case 'reception': return 'bg-purple-100 text-purple-800';
+    case 'housekeeping': return 'bg-teal-100 text-teal-800';
+    case 'porter': return 'bg-sky-100 text-sky-800';
+    case 'concierge': return 'bg-pink-100 text-pink-800';
+    case 'service_fb': return 'bg-orange-100 text-orange-800';
+    case 'maintenance': return 'bg-amber-100 text-amber-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
+
+const inferCategory = (ticket: Ticket): Ticket['category'] => {
+  if (ticket.category) return ticket.category;
+  const text = `${ticket.messages?.map(m => m.content).join(' ') || ''} ${ticket.roomNumber || ''}`.toLowerCase();
+  if (/(clean|towel|linen|sheet|housekeep|trash|amenit)/.test(text)) return 'housekeeping';
+  if (/(luggage|baggage|bags|bell ?(boy|hop)|porter|trolley|cart|carry|help with bags)/.test(text)) return 'porter';
+  if (/(break|broken|leak|ac|heater|hvac|power|door|plumb|fix|repair|not working|maintenance)/.test(text)) return 'maintenance';
+  if (/(food|breakfast|dinner|lunch|menu|order|restaurant|bar|drink|beverage|room service)/.test(text)) return 'service_fb';
+  if (/(taxi|uber|cab|transport|reservation|book|tour|attraction|recommend|directions|concierge)/.test(text)) return 'concierge';
+  if (/(check[- ]?in|check[- ]?out|bill|payment|key|card|front desk|reception)/.test(text)) return 'reception';
+  return 'reception';
+};
+
 interface Ticket {
   _id: string;
   room: string | {
@@ -65,6 +102,7 @@ interface Ticket {
     floor?: number;
   };
   roomNumber: string;
+  category?: 'reception' | 'housekeeping' | 'porter' | 'concierge' | 'service_fb' | 'maintenance';
   guestInfo: {
     name: string;
     email?: string;
@@ -120,6 +158,18 @@ export default function DashboardPage() {
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
   const [socket, setSocket] = useState<any>(null);
+  // Category filter: default all selected
+  const allCategories: Ticket['category'][] = ['reception', 'housekeeping', 'porter', 'concierge', 'service_fb', 'maintenance'];
+  const [selectedCategories, setSelectedCategories] = useState<Ticket['category'][]>(allCategories);
+
+  // Category quick-filter handler
+  const handleSelectCategory = (cat: 'all' | Ticket['category']) => {
+    if (cat === 'all') {
+      setSelectedCategories(allCategories);
+    } else {
+      setSelectedCategories([cat]);
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -402,7 +452,10 @@ export default function DashboardPage() {
     if (filterRoom) {
       filtered = filtered.filter(ticket => ticket.roomNumber === filterRoom);
     }
-    
+
+    // Category filter (defaults to all)
+    filtered = filtered.filter(ticket => selectedCategories.includes(inferCategory(ticket)));
+
     return filtered;
   };
 
@@ -575,6 +628,27 @@ export default function DashboardPage() {
                 )}
               </div>
             </div>
+
+            {/* Department (Category) quick filters */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button
+                variant={selectedCategories.length === allCategories.length ? 'default' : 'outline'}
+                className="h-9"
+                onClick={() => handleSelectCategory('all')}
+              >
+                All
+              </Button>
+              {allCategories.map((cat) => (
+                <Button
+                  key={cat}
+                  variant={selectedCategories.length === 1 && selectedCategories[0] === cat ? 'default' : 'outline'}
+                  className="h-9"
+                  onClick={() => handleSelectCategory(cat)}
+                >
+                  {getCategoryLabel(cat)}
+                </Button>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -603,9 +677,9 @@ export default function DashboardPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 h-[calc(100vh-580px)] overflow-y-auto p-3">
-                  <SortableContext items={tickets.raised.map(t => t._id)} strategy={verticalListSortingStrategy}>
+                  <SortableContext items={getFilteredTickets('raised').map(t => t._id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-3">
-                      {tickets.raised.map((ticket) => (
+                      {getFilteredTickets('raised').map((ticket) => (
                         <DraggableTicketCard
                           key={ticket._id}
                           ticket={ticket}
@@ -635,9 +709,9 @@ export default function DashboardPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 h-[calc(100vh-580px)] overflow-y-auto p-3">
-                  <SortableContext items={tickets.in_progress.map(t => t._id)} strategy={verticalListSortingStrategy}>
+                  <SortableContext items={getFilteredTickets('in_progress').map(t => t._id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-3">
-                      {tickets.in_progress.map((ticket) => (
+                      {getFilteredTickets('in_progress').map((ticket) => (
                         <DraggableTicketCard
                           key={ticket._id}
                           ticket={ticket}
@@ -667,9 +741,9 @@ export default function DashboardPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 h-[calc(100vh-580px)] overflow-y-auto p-3">
-                  <SortableContext items={tickets.completed.map(t => t._id)} strategy={verticalListSortingStrategy}>
+                  <SortableContext items={getFilteredTickets('completed').map(t => t._id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-3">
-                      {tickets.completed.map((ticket) => (
+                      {getFilteredTickets('completed').map((ticket) => (
                         <DraggableTicketCard
                           key={ticket._id}
                           ticket={ticket}
@@ -691,12 +765,19 @@ export default function DashboardPage() {
                   <h3 className="font-medium text-sm line-clamp-2">
                     {activeTicket.guestInfo.name} - Room {activeTicket.roomNumber}
                   </h3>
-                  <Badge 
-                    variant={activeTicket.priority === 'high' ? 'destructive' : activeTicket.priority === 'medium' ? 'default' : 'secondary'}
-                    className="ml-2 flex-shrink-0"
-                  >
-                    {activeTicket.priority}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(inferCategory(activeTicket))}`}
+                    >
+                      {getCategoryLabel(inferCategory(activeTicket))}
+                    </span>
+                    <Badge 
+                      variant={activeTicket.priority === 'high' ? 'destructive' : activeTicket.priority === 'medium' ? 'default' : 'secondary'}
+                      className="ml-2 flex-shrink-0"
+                    >
+                      {activeTicket.priority}
+                    </Badge>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground line-clamp-2">
                   {activeTicket.messages[0]?.content || 'No message content'}
@@ -959,12 +1040,19 @@ function DraggableTicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () 
         <h3 className="font-medium text-sm line-clamp-2">
           {ticket.guestInfo.name} - Room {ticket.roomNumber}
         </h3>
-        <Badge 
-          variant={ticket.priority === 'high' ? 'destructive' : ticket.priority === 'medium' ? 'default' : 'secondary'}
-          className="text-xs"
-        >
-          {ticket.priority}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <span
+            className={`px-2 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(inferCategory(ticket))}`}
+          >
+            {getCategoryLabel(inferCategory(ticket))}
+          </span>
+          <Badge 
+            variant={ticket.priority === 'high' ? 'destructive' : ticket.priority === 'medium' ? 'default' : 'secondary'}
+            className="text-xs"
+          >
+            {ticket.priority}
+          </Badge>
+        </div>
       </div>
       
       <p className="text-xs text-muted-foreground mb-3 line-clamp-2">

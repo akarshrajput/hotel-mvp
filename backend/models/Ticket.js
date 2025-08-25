@@ -30,6 +30,12 @@ const ticketSchema = new mongoose.Schema(
       required: [true, 'Room number is required'],
       trim: true,
     },
+    category: {
+      type: String,
+      enum: ['reception', 'housekeeping', 'porter', 'concierge', 'service_fb', 'maintenance'],
+      default: 'reception',
+      index: true,
+    },
     status: {
       type: String,
       enum: ['raised', 'in_progress', 'completed'],

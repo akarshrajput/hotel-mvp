@@ -4,6 +4,19 @@ const { body, validationResult } = require('express-validator');
 const ErrorResponse = require('../utils/errorResponse');
 const { createGuestTicket } = require('./chatController');
 
+// Lightweight category classifier (kept local to avoid cross-deps)
+// Returns one of: reception, housekeeping, porter, concierge, service_fb, maintenance
+const classifyCategoryFast = (text = '') => {
+  const t = String(text || '').toLowerCase();
+  if (/(clean|towel|linen|sheet|housekeep|trash|amenit)/.test(t)) return 'housekeeping';
+  if (/(luggage|baggage|bags|bell ?(boy|hop)|porter|trolley|cart|carry|help with bags)/.test(t)) return 'porter';
+  if (/(break|broken|leak|ac|heater|hvac|power|door|plumb|fix|repair|not working|maintenance)/.test(t)) return 'maintenance';
+  if (/(food|breakfast|dinner|lunch|menu|order|restaurant|bar|drink|beverage|room service)/.test(t)) return 'service_fb';
+  if (/(taxi|uber|cab|transport|reservation|book|tour|attraction|recommend|directions|concierge)/.test(t)) return 'concierge';
+  if (/(check[- ]?in|check[- ]?out|bill|payment|key|card|front desk|reception)/.test(t)) return 'reception';
+  return 'reception';
+};
+
 // Helper function to emit ticket updates
 const emitTicketUpdate = (req, ticket, event = 'ticketUpdated') => {
   if (req.app.get('io')) {
@@ -36,7 +49,7 @@ exports.createTicket = [
         });
       }
 
-      const { roomId, message: content, guestName, guestContact, priority = 'medium', subject } = req.body;
+      const { roomId, message: content, guestName, guestContact, priority = 'medium', subject, category: incomingCategory } = req.body;
 
       // Verify room exists and is active
       const room = await Room.findOne({ 
@@ -48,11 +61,15 @@ exports.createTicket = [
         return next(new ErrorResponse('Invalid room or room not found', 404));
       }
 
+      // Determine category from provided value or heuristics on subject/message
+      const resolvedCategory = incomingCategory || classifyCategoryFast(`${subject || ''} ${content || ''}`);
+
       // Create new ticket with all required fields
       const ticketData = {
         room: roomId,
         roomNumber: room.number, // Get room number from the found room
         manager: room.manager,   // Get manager from the room
+        category: resolvedCategory,
         guestInfo: {
           name: guestName,
           contact: guestContact || 'Not provided',
