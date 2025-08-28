@@ -167,8 +167,7 @@ export default function GuestChatPage() {
           email: guestInfo.email,
           phone: guestInfo.phone
         },
-        initialMessage: conversationSummary,
-        priority: 'medium'
+        initialMessage: conversationSummary
       });
 
       setTicketId(response.data.data._id);

@@ -28,34 +28,82 @@ const callMistralAI = async (messages, maxTokens = 300) => {
   }
 };
 
-// Helper: classify a free-text request into a ticket category
+
+// Helper: classify a free-text request into multiple ticket categories
 // Allowed categories: reception, housekeeping, porter, concierge, service_fb, maintenance
-const classifyCategory = async (text) => {
-  const categories = ['reception', 'housekeeping', 'porter', 'concierge', 'service_fb', 'maintenance'];
+const classifyCategories = async (text) => {
+  const allCategories = ['reception', 'housekeeping', 'porter', 'concierge', 'service_fb', 'maintenance'];
+  const matchedCategories = [];
 
-  // Heuristic fallback first (fast path)
+  // Enhanced heuristic matching for multiple categories
   const t = (text || '').toLowerCase();
-  if (/(clean|towel|linen|sheet|housekeep|trash|amenit)/.test(t)) return 'housekeeping';
-  if (/(luggage|baggage|bags|bell ?(boy|hop)|porter|trolley|cart|carry|help with bags)/.test(t)) return 'porter';
-  if (/(break|broken|leak|ac|heater|hvac|power|door|plumb|fix|repair|not working|maintenance)/.test(t)) return 'maintenance';
-  if (/(food|breakfast|dinner|lunch|menu|order|restaurant|bar|drink|beverage|room service)/.test(t)) return 'service_fb';
-  if (/(taxi|uber|cab|transport|reservation|book|tour|attraction|recommend|directions|concierge)/.test(t)) return 'concierge';
-  if (/(check[- ]?in|check[- ]?out|bill|payment|key|card|front desk|reception)/.test(t)) return 'reception';
+  
+  // Housekeeping keywords
+  if (/(clean|towel|linen|sheet|housekeep|trash|amenit|bed|pillow|bathroom|soap|shampoo|tissue|toilet paper|extra|replace|fresh)/.test(t)) {
+    matchedCategories.push('housekeeping');
+  }
+  
+  // Porter/Bellhop keywords  
+  if (/(luggage|baggage|bags|bell ?(boy|hop)|porter|trolley|cart|carry|help with bags|suitcase|move|transport luggage)/.test(t)) {
+    matchedCategories.push('porter');
+  }
+  
+  // Maintenance keywords
+  if (/(break|broken|leak|ac|heater|hvac|power|door|plumb|fix|repair|not working|maintenance|light|electrical|bulb|switch|outlet|temperature|hot|cold)/.test(t)) {
+    matchedCategories.push('maintenance');
+  }
+  
+  // Food & Beverage keywords (with common typos and variations)
+  if (/(food|breakfast|dinner|lunch|menu|order|restaurant|bar|drink|beverage|room service|coffe[e]?|tea|water|snack|meal|dining|kitchen|hungry|thirsty|eat|cafe|cappuccino|espresso|latte|juice|soda|beer|wine|cocktail)/.test(t)) {
+    matchedCategories.push('service_fb');
+  }
+  
+  // Concierge keywords (transportation, bookings, recommendations)
+  if (/(taxi|uber|cab|transport|reservation|book|tour|attraction|recommend|directions|concierge|restaurant|show|ticket|car|vehicle|driver|airport|train|bus|sightseeing|local|city|map)/.test(t)) {
+    matchedCategories.push('concierge');
+  }
+  
+  // Reception keywords (keys, billing, check-in/out)
+  if (/(check[- ]?in|check[- ]?out|bill|payment|key|card|front desk|reception|invoice|checkout|room key|car key|safe|deposit|account|charge|credit|debit)/.test(t)) {
+    matchedCategories.push('reception');
+  }
 
-  // If unclear, ask Mistral for a strict one-word classification
+  // If we found categories through heuristics, return them
+  if (matchedCategories.length > 0) {
+    return matchedCategories;
+  }
+
+  // If unclear, ask Mistral for classification
   try {
-    const prompt = `Classify the hotel guest request into EXACTLY one of these categories: reception, housekeeping, porter, concierge, service_fb, maintenance.\n\nRequest: "${text}"\n\nRespond with ONLY the category id (lowercase, underscore), no explanation.`;
+    const prompt = `Analyze this hotel guest request and identify ALL applicable categories from: reception, housekeeping, porter, concierge, service_fb, maintenance.
+
+Request: "${text}"
+
+Respond with a comma-separated list of category IDs (lowercase, underscore). If multiple categories apply, include all of them. Examples:
+- "I need coffee and my room cleaned" -> "service_fb,housekeeping"
+- "Can you help with my bags and book a taxi?" -> "porter,concierge"
+- "I need car key and coffee" -> "reception,service_fb"
+- "The AC is broken" -> "maintenance"
+- "Extra towels and room service" -> "housekeeping,service_fb"`;
+    
     const out = await callMistralAI([
-      { role: 'system', content: 'You are a strict classifier that outputs only one token from the allowed labels.' },
+      { role: 'system', content: 'You are a multi-label classifier for hotel service categories. Output comma-separated category IDs only.' },
       { role: 'user', content: prompt }
-    ], 5);
-    const normalized = (out || '').trim().toLowerCase();
-    if (categories.includes(normalized)) return normalized;
+    ], 20);
+    
+    const categories = (out || '').trim().toLowerCase().split(',').map(c => c.trim()).filter(c => allCategories.includes(c));
+    if (categories.length > 0) return categories;
   } catch (e) {
     // ignore and fall through to default
   }
 
-  return 'reception';
+  return ['reception'];
+};
+
+// Backward compatibility: single category classification
+const classifyCategory = async (text) => {
+  const categories = await classifyCategories(text);
+  return categories[0] || 'reception';
 };
 
 // @desc    Handle AI chat for guests
@@ -72,31 +120,30 @@ exports.chatWithAI = async (req, res) => {
       });
     }
 
-    // Enhanced system prompt for hotel AI assistant
-    const systemPrompt = `You are an intelligent AI concierge for a luxury hotel. You're assisting ${guestInfo.guestName} who is staying in room ${guestInfo.roomNumber}. 
+    // Enhanced system prompt for hotel AI assistant - SHORT RESPONSES ONLY
+    const systemPrompt = `You are a hotel AI assistant for ${guestInfo.guestName} in room ${guestInfo.roomNumber}. 
 
-Your personality: Friendly, professional, helpful, and proactive. Always maintain a warm, welcoming tone.
+IMPORTANT: Keep ALL responses to ONE SHORT LINE only (maximum 10-15 words).
 
-Your capabilities:
-1. IMMEDIATE HELP: Answer questions about hotel services, amenities, and policies
-2. ROOM ASSISTANCE: Help with room-related issues and comfort requests  
-3. CONCIERGE SERVICES: Provide local recommendations, directions, and travel assistance
-4. SERVICE COORDINATION: Identify when human staff intervention is needed
+Respond as if YOU are the service provider who will personally handle the request. Be warm and helpful.
 
-Hotel Services Available:
-• Room Service: 24/7 dining, special dietary requests
-• Housekeeping: Extra amenities, cleaning schedules, maintenance
-• Concierge: Restaurant reservations, transportation, local attractions
-• Facilities: Pool (6 AM - 10 PM), Gym (24/7), Spa (9 AM - 9 PM)
-• Business Center: Printing, meeting rooms, WiFi support
+Response patterns:
+- Coffee/drinks: "Sure, I'll bring your [item], couple minutes. Anything else?"
+- Food: "I'll prepare your [food], be right there in few minutes. Need anything else?"
+- Towels/amenities: "I'll get fresh [item] to your room, couple minutes. Anything else?"
+- Cleaning: "I'll clean that up for you, give me few minutes. Need anything else?"
+- Maintenance: "I'll fix that for you, give me some time. Anything else?"
+- Transportation: "I'll arrange your [transport], couple minutes. Need anything else?"
+- Information: "Let me check that for you, couple minutes. Anything else?"
 
-When to suggest creating a service request:
-- Physical issues (broken items, temperature, plumbing, electrical)
-- Service requests (room service, housekeeping, maintenance)
-- Special accommodations or urgent needs
-- Complaints or concerns requiring staff attention
+Examples:
+- Guest: "Need coffee" → "Sure, I'll bring your coffee, few minutes. Anything else?"
+- Guest: "Room dirty" → "I'll clean that up for you, give me few minutes. Need anything else?"
+- Guest: "AC broken" → "I'll fix that for you, give me some time. Anything else?"
+- Guest: "Need taxi" → "I'll arrange your taxi, couple minutes. Need anything else?"
+- Guest: "Where's my car?" → "Let me check that for you, couple minutes. Anything else?"
 
-Always be specific in your responses and offer to create a service request when appropriate. Keep responses conversational but informative.`;
+Sound personal and helpful, like hotel staff would. ALWAYS end with asking if they need anything else ("Anything else?", "Need anything else?", "Want anything else?").`;
 
     // Prepare conversation for Mistral AI
     const messages = [
@@ -114,29 +161,21 @@ Always be specific in your responses and offer to create a service request when 
     let urgencyLevel = 'medium';
 
     try {
-      aiResponse = await callMistralAI(messages, 400);
+      aiResponse = await callMistralAI(messages, 50);
 
       // Enhanced logic to determine if ticket should be created
-      const urgentKeywords = ['emergency', 'urgent', 'broken', 'not working', 'leak', 'flooding', 'no power', 'locked out'];
       const serviceKeywords = [
         'room service', 'housekeeping', 'maintenance', 'clean', 'towels', 'pillows', 
         'temperature', 'hot water', 'cold', 'repair', 'fix', 'help', 'staff', 
         'manager', 'complaint', 'problem', 'issue', 'request'
       ];
-
-      const isUrgent = urgentKeywords.some(keyword => 
-        message.toLowerCase().includes(keyword)
-      );
       
       const needsService = serviceKeywords.some(keyword => 
         message.toLowerCase().includes(keyword) || 
         aiResponse.toLowerCase().includes('service request')
       );
 
-      if (isUrgent) {
-        urgencyLevel = 'high';
-        shouldCreateTicket = true;
-      } else if (needsService) {
+      if (needsService) {
         shouldCreateTicket = true;
       }
 
@@ -150,15 +189,14 @@ Always be specific in your responses and offer to create a service request when 
     } catch (mistralError) {
       console.error('Mistral AI API error:', mistralError);
       
-      // Enhanced fallback response
+      // Personal service fallback responses
       const fallbackResponses = [
-        `Thank you for reaching out, ${guestInfo.guestName}! I understand you need assistance with "${message}". I'd be happy to help you with that right away.`,
-        `Hello ${guestInfo.guestName}! I see you're looking for help with "${message}". Let me connect you with our staff who can assist you immediately.`,
-        `Hi ${guestInfo.guestName}! I'm here to help with your request about "${message}". Our team is ready to provide excellent service for you.`
+        `I'll take care of that for you right away!`,
+        `Sure, give me a few minutes to help.`,
+        `I'll handle that for you shortly.`
       ];
       
-      aiResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)] + 
-                  " Would you like me to create a service request so our hotel staff can assist you personally?";
+      aiResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
       shouldCreateTicket = true;
     }
 
@@ -166,7 +204,6 @@ Always be specific in your responses and offer to create a service request when 
       success: true,
       message: aiResponse,
       shouldCreateTicket,
-      urgencyLevel,
       timestamp: new Date(),
       conversationId: `${guestInfo.roomNumber}-${Date.now()}`
     });
@@ -180,12 +217,41 @@ Always be specific in your responses and offer to create a service request when 
   }
 };
 
+// Helper function to generate meaningful ticket subject
+const generateTicketSubject = async (message) => {
+  try {
+    const prompt = `Generate a descriptive 4-5 word subject line for this hotel service request. Include specific details like quantities and items. Examples:
+- "I need 2 coffee" -> "2 Coffees Request"
+- "AC not working" -> "AC Repair Needed"
+- "Need 3 extra towels" -> "3 Extra Towels Request"
+- "Room service breakfast" -> "Breakfast Room Service"
+- "Help with 2 bags" -> "2 Bags Assistance"
+- "Book taxi to airport" -> "Airport Taxi Booking"
+- "Room cleaning needed" -> "Room Cleaning Request"
+- "WiFi password please" -> "WiFi Password Request"
+
+Request: "${message}"
+
+Respond with ONLY the subject line (4-5 words, title case, include quantities/specifics):`;
+    
+    const subject = await callMistralAI([
+      { role: 'system', content: 'You generate concise, professional hotel service request subjects.' },
+      { role: 'user', content: prompt }
+    ], 10);
+    
+    const cleanSubject = (subject || '').trim().replace(/["']/g, '');
+    return cleanSubject.length > 0 && cleanSubject.length <= 50 ? cleanSubject : 'Service Request';
+  } catch (e) {
+    return 'Service Request';
+  }
+};
+
 // @desc    Create ticket from guest chat
 // @route   POST /api/tickets/guest
 // @access  Public
 exports.createGuestTicket = async (req, res) => {
   try {
-    const { roomNumber, guestInfo, initialMessage, priority = 'medium', conversationHistory = [] } = req.body;
+    const { roomNumber, guestInfo, initialMessage, conversationHistory = [] } = req.body;
 
     if (!roomNumber || !guestInfo || !initialMessage) {
       return res.status(400).json({
@@ -219,26 +285,39 @@ ${conversationHistory.map(msg =>
 
 Current Request: ${initialMessage}`;
 
-    // Determine category using AI + heuristics
+    // Determine categories using AI + heuristics
+    let categories = ['reception'];
     let category = 'reception';
     try {
-      category = await classifyCategory(initialMessage);
-    } catch (_) { /* keep default */ }
+      categories = await classifyCategories(initialMessage);
+      category = categories[0] || 'reception';
+      console.log('🔍 Classification Debug:', {
+        initialMessage,
+        detectedCategories: categories,
+        primaryCategory: category
+      });
+    } catch (error) {
+      console.error('Classification error:', error);
+      /* keep default */
+    }
 
-    // Create the ticket with conversation history
+    // Generate meaningful subject
+    const subject = await generateTicketSubject(initialMessage);
+
+    // Create the ticket with conversation history and multiple categories
     const ticket = await Ticket.create({
       room: room._id,
       roomNumber: roomNumber,
-      category,
+      categories,
+      category, // Keep for backward compatibility
       guestInfo: {
         name: guestInfo.name,
         email: guestInfo.email || '',
         phone: guestInfo.phone || ''
       },
       status: 'raised',
-      priority: priority,
       manager: room.manager,
-      subject: `Service Request - Room ${roomNumber}`,
+      subject: subject,
       messages: [
         ...formattedConversation,
         {
@@ -261,7 +340,6 @@ Current Request: ${initialMessage}`;
         notification: {
           title: 'New Service Request',
           message: `${guestInfo.name} from Room ${roomNumber} needs assistance`,
-          priority: priority,
           timestamp: new Date().toISOString()
         }
       });
@@ -310,7 +388,6 @@ exports.managerAIAssist = async (req, res) => {
 Guest: ${ticket.guestInfo.name}
 Room: ${ticket.roomNumber}
 Request Type: ${requestType || 'General'}
-Priority: ${ticket.priority}
 
 Based on the conversation history, suggest a professional and helpful response that:
 1. Acknowledges the guest's request

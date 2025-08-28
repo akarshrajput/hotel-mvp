@@ -30,6 +30,10 @@ const ticketSchema = new mongoose.Schema(
       required: [true, 'Room number is required'],
       trim: true,
     },
+    categories: [{
+      type: String,
+      enum: ['reception', 'housekeeping', 'porter', 'concierge', 'service_fb', 'maintenance'],
+    }],
     category: {
       type: String,
       enum: ['reception', 'housekeeping', 'porter', 'concierge', 'service_fb', 'maintenance'],
@@ -62,11 +66,6 @@ const ticketSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: 'User',
       required: true,
-    },
-    priority: {
-      type: String,
-      enum: ['low', 'medium', 'high'],
-      default: 'medium',
     },
     subject: {
       type: String,
