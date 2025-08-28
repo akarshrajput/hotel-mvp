@@ -29,6 +29,18 @@ const callMistralAI = async (messages, maxTokens = 300) => {
 };
 
 
+// Utility: strip trailing follow-up questions like "Anything else?"
+const stripFollowUps = (text = '') => {
+  try {
+    return (text || '')
+      .replace(/\s*(?:anything else\??|need anything else\??|want anything else\??|can i help with anything else\??)\s*$/i, '')
+      .trim();
+  } catch {
+    return text;
+  }
+};
+
+
 // Helper: classify a free-text request into multiple ticket categories
 // Allowed categories: reception, housekeeping, porter, concierge, service_fb, maintenance
 const classifyCategories = async (text) => {
@@ -120,30 +132,20 @@ exports.chatWithAI = async (req, res) => {
       });
     }
 
-    // Enhanced system prompt for hotel AI assistant - SHORT RESPONSES ONLY
-    const systemPrompt = `You are a hotel AI assistant for ${guestInfo.guestName} in room ${guestInfo.roomNumber}. 
+    // System prompt for hotel AI assistant - short, direct, no follow-up questions
+    const systemPrompt = `You are a hotel AI assistant for ${guestInfo.guestName} in room ${guestInfo.roomNumber}.
 
-IMPORTANT: Keep ALL responses to ONE SHORT LINE only (maximum 10-15 words).
-
-Respond as if YOU are the service provider who will personally handle the request. Be warm and helpful.
-
-Response patterns:
-- Coffee/drinks: "Sure, I'll bring your [item], couple minutes. Anything else?"
-- Food: "I'll prepare your [food], be right there in few minutes. Need anything else?"
-- Towels/amenities: "I'll get fresh [item] to your room, couple minutes. Anything else?"
-- Cleaning: "I'll clean that up for you, give me few minutes. Need anything else?"
-- Maintenance: "I'll fix that for you, give me some time. Anything else?"
-- Transportation: "I'll arrange your [transport], couple minutes. Need anything else?"
-- Information: "Let me check that for you, couple minutes. Anything else?"
+Rules:
+- Keep responses short and direct: one concise line (max 10–15 words).
+- Sound like the staff member personally handling it: warm, confident, actionable.
+- Do NOT add follow-up questions like "Anything else?", "Need anything else?", etc.
 
 Examples:
-- Guest: "Need coffee" → "Sure, I'll bring your coffee, few minutes. Anything else?"
-- Guest: "Room dirty" → "I'll clean that up for you, give me few minutes. Need anything else?"
-- Guest: "AC broken" → "I'll fix that for you, give me some time. Anything else?"
-- Guest: "Need taxi" → "I'll arrange your taxi, couple minutes. Need anything else?"
-- Guest: "Where's my car?" → "Let me check that for you, couple minutes. Anything else?"
-
-Sound personal and helpful, like hotel staff would. ALWAYS end with asking if they need anything else ("Anything else?", "Need anything else?", "Want anything else?").`;
+- Guest: "Need coffee" → "Sure, I'll bring your coffee in a few minutes."
+- Guest: "Room dirty" → "I'll come clean the room shortly."
+- Guest: "AC broken" → "I'll send maintenance to fix it now."
+- Guest: "Need taxi" → "I'll arrange a taxi right away."
+- Guest: "Where's my car?" → "I'll check and update you in a moment."`;
 
     // Prepare conversation for Mistral AI
     const messages = [
@@ -199,6 +201,9 @@ Sound personal and helpful, like hotel staff would. ALWAYS end with asking if th
       aiResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
       shouldCreateTicket = true;
     }
+
+    // Final sanitize to ensure no trailing follow-up prompts slip through
+    aiResponse = stripFollowUps(aiResponse);
 
     res.json({
       success: true,
@@ -418,7 +423,7 @@ Keep the response concise and actionable. Focus on customer service excellence.`
       console.error('Mistral AI API error:', mistralError);
       
       // Fallback suggestion
-      const fallbackSuggestion = `Thank you for bringing this to our attention, ${ticket.guestInfo.name}. I understand your concern and we'll address this promptly. Our team will take care of this for you within the next 30 minutes. Is there anything else I can help you with?`;
+      const fallbackSuggestion = `Thank you for bringing this to our attention, ${ticket.guestInfo.name}. We understand your concern and will address this promptly within 30 minutes.`;
       
       res.json({
         success: true,
