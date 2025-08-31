@@ -1,121 +1,195 @@
-const axios = require('axios');
-const Ticket = require('../models/Ticket');
-const Room = require('../models/Room');
+const axios = require("axios");
+const Ticket = require("../models/Ticket");
+const Room = require("../models/Room");
 
 // Mistral AI configuration
-const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
-const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY || 'your-mistral-api-key-here';
+const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
+const MISTRAL_API_KEY =
+  process.env.MISTRAL_API_KEY || "your-mistral-api-key-here";
 
 // Function to call Mistral AI
 const callMistralAI = async (messages, maxTokens = 300) => {
   try {
-    const response = await axios.post(MISTRAL_API_URL, {
-      model: 'mistral-tiny', // Free tier model
-      messages: messages,
-      max_tokens: maxTokens,
-      temperature: 0.7
-    }, {
-      headers: {
-        'Authorization': `Bearer ${MISTRAL_API_KEY}`,
-        'Content-Type': 'application/json'
+    const response = await axios.post(
+      MISTRAL_API_URL,
+      {
+        model: "mistral-tiny", // Free tier model
+        messages: messages,
+        max_tokens: maxTokens,
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${MISTRAL_API_KEY}`,
+          "Content-Type": "application/json",
+        },
       }
-    });
-    
+    );
+
     return response.data.choices[0].message.content;
   } catch (error) {
-    console.error('Mistral AI API error:', error.response?.data || error.message);
+    console.error(
+      "Mistral AI API error:",
+      error.response?.data || error.message
+    );
     throw error;
   }
 };
 
-
 // Utility: strip trailing follow-up questions like "Anything else?"
-const stripFollowUps = (text = '') => {
+const stripFollowUps = (text = "") => {
   try {
-    return (text || '')
-      .replace(/\s*(?:anything else\??|need anything else\??|want anything else\??|can i help with anything else\??)\s*$/i, '')
+    return (text || "")
+      .replace(
+        /\s*(?:anything else\??|need anything else\??|want anything else\??|can i help with anything else\??)\s*$/i,
+        ""
+      )
       .trim();
   } catch {
     return text;
   }
 };
 
+// Enhanced single category classification with comprehensive AI training
+const classifyCategory = async (text) => {
+  const allCategories = [
+    "reception",
+    "housekeeping",
+    "porter",
+    "concierge",
+    "service_fb",
+    "maintenance",
+  ];
 
-// Helper: classify a free-text request into multiple ticket categories
-// Allowed categories: reception, housekeeping, porter, concierge, service_fb, maintenance
-const classifyCategories = async (text) => {
-  const allCategories = ['reception', 'housekeeping', 'porter', 'concierge', 'service_fb', 'maintenance'];
-  const matchedCategories = [];
-
-  // Enhanced heuristic matching for multiple categories
-  const t = (text || '').toLowerCase();
-  
-  // Housekeeping keywords
-  if (/(clean|towel|linen|sheet|housekeep|trash|amenit|bed|pillow|bathroom|soap|shampoo|tissue|toilet paper|extra|replace|fresh)/.test(t)) {
-    matchedCategories.push('housekeeping');
-  }
-  
-  // Porter/Bellhop keywords  
-  if (/(luggage|baggage|bags|bell ?(boy|hop)|porter|trolley|cart|carry|help with bags|suitcase|move|transport luggage)/.test(t)) {
-    matchedCategories.push('porter');
-  }
-  
-  // Maintenance keywords
-  if (/(break|broken|leak|ac|heater|hvac|power|door|plumb|fix|repair|not working|maintenance|light|electrical|bulb|switch|outlet|temperature|hot|cold)/.test(t)) {
-    matchedCategories.push('maintenance');
-  }
-  
-  // Food & Beverage keywords (with common typos and variations)
-  if (/(food|breakfast|dinner|lunch|menu|order|restaurant|bar|drink|beverage|room service|coffe[e]?|tea|water|snack|meal|dining|kitchen|hungry|thirsty|eat|cafe|cappuccino|espresso|latte|juice|soda|beer|wine|cocktail)/.test(t)) {
-    matchedCategories.push('service_fb');
-  }
-  
-  // Concierge keywords (transportation, bookings, recommendations)
-  if (/(taxi|uber|cab|transport|reservation|book|tour|attraction|recommend|directions|concierge|restaurant|show|ticket|car|vehicle|driver|airport|train|bus|sightseeing|local|city|map)/.test(t)) {
-    matchedCategories.push('concierge');
-  }
-  
-  // Reception keywords (keys, billing, check-in/out)
-  if (/(check[- ]?in|check[- ]?out|bill|payment|key|card|front desk|reception|invoice|checkout|room key|car key|safe|deposit|account|charge|credit|debit)/.test(t)) {
-    matchedCategories.push('reception');
-  }
-
-  // If we found categories through heuristics, return them
-  if (matchedCategories.length > 0) {
-    return matchedCategories;
-  }
-
-  // If unclear, ask Mistral for classification
   try {
-    const prompt = `Analyze this hotel guest request and identify ALL applicable categories from: reception, housekeeping, porter, concierge, service_fb, maintenance.
+    // Comprehensive AI classification with extensive training examples
+    const prompt = `Classify this hotel guest request into exactly ONE most appropriate category from: reception, housekeeping, porter, concierge, service_fb, maintenance.
+
+Extensive Training Examples:
+
+HOUSEKEEPING:
+- "need towels" -> housekeeping
+- "room cleaning" -> housekeeping
+- "fresh sheets" -> housekeeping
+- "bathroom supplies" -> housekeeping
+- "toilet paper" -> housekeeping
+- "soap refill" -> housekeeping
+- "pillow replacement" -> housekeeping
+- "bed making" -> housekeeping
+- "trash removal" -> housekeeping
+- "room amenities" -> housekeeping
+- "shampoo bottle" -> housekeeping
+- "extra blankets" -> housekeeping
+- "tissue box" -> housekeeping
+- "room freshener" -> housekeeping
+- "vacuum room" -> housekeeping
+
+PORTER:
+- "help with luggage" -> porter
+- "carry bags" -> porter
+- "baggage assistance" -> porter
+- "move suitcase" -> porter
+- "bellhop service" -> porter
+- "trolley for bags" -> porter
+- "help moving items" -> porter
+- "transport luggage" -> porter
+- "bag delivery" -> porter
+- "heavy lifting" -> porter
+
+MAINTENANCE:
+- "AC not working" -> maintenance
+- "broken light" -> maintenance
+- "leaking faucet" -> maintenance
+- "door won't open" -> maintenance
+- "heating issue" -> maintenance
+- "electrical problem" -> maintenance
+- "plumbing repair" -> maintenance
+- "temperature control" -> maintenance
+- "wifi not working" -> maintenance
+- "TV broken" -> maintenance
+- "power outlet" -> maintenance
+- "bulb replacement" -> maintenance
+- "thermostat issue" -> maintenance
+- "water pressure" -> maintenance
+- "lock repair" -> maintenance
+
+SERVICE_FB:
+- "room service" -> service_fb
+- "coffee order" -> service_fb
+- "breakfast delivery" -> service_fb
+- "food menu" -> service_fb
+- "drink request" -> service_fb
+- "dining reservation" -> service_fb
+- "restaurant booking" -> service_fb
+- "bar service" -> service_fb
+- "meal delivery" -> service_fb
+- "beverage order" -> service_fb
+- "tea service" -> service_fb
+- "wine list" -> service_fb
+- "snack request" -> service_fb
+- "water bottles" -> service_fb
+- "minibar refill" -> service_fb
+
+CONCIERGE:
+- "taxi booking" -> concierge
+- "tour recommendation" -> concierge
+- "restaurant suggestion" -> concierge
+- "transportation" -> concierge
+- "city directions" -> concierge
+- "attraction tickets" -> concierge
+- "car rental" -> concierge
+- "airport transfer" -> concierge
+- "local information" -> concierge
+- "sightseeing help" -> concierge
+- "event booking" -> concierge
+- "show tickets" -> concierge
+- "travel assistance" -> concierge
+- "map request" -> concierge
+- "uber booking" -> concierge
+
+RECEPTION:
+- "room key" -> reception
+- "check out" -> reception
+- "bill inquiry" -> reception
+- "payment issue" -> reception
+- "front desk" -> reception
+- "invoice request" -> reception
+- "account charge" -> reception
+- "key card" -> reception
+- "checkout time" -> reception
+- "billing question" -> reception
+- "deposit refund" -> reception
+- "safe access" -> reception
+- "registration" -> reception
+- "credit card" -> reception
+- "room change" -> reception
 
 Request: "${text}"
 
-Respond with a comma-separated list of category IDs (lowercase, underscore). If multiple categories apply, include all of them. Examples:
-- "I need coffee and my room cleaned" -> "service_fb,housekeeping"
-- "Can you help with my bags and book a taxi?" -> "porter,concierge"
-- "I need car key and coffee" -> "reception,service_fb"
-- "The AC is broken" -> "maintenance"
-- "Extra towels and room service" -> "housekeeping,service_fb"`;
-    
-    const out = await callMistralAI([
-      { role: 'system', content: 'You are a multi-label classifier for hotel service categories. Output comma-separated category IDs only.' },
-      { role: 'user', content: prompt }
-    ], 20);
-    
-    const categories = (out || '').trim().toLowerCase().split(',').map(c => c.trim()).filter(c => allCategories.includes(c));
-    if (categories.length > 0) return categories;
-  } catch (e) {
-    // ignore and fall through to default
+Respond with ONLY the single most appropriate category (lowercase, underscore):`;
+
+    const result = await callMistralAI(
+      [
+        {
+          role: "system",
+          content:
+            "You are a precise single-category classifier for hotel services. Always output exactly one category ID.",
+        },
+        { role: "user", content: prompt },
+      ],
+      10
+    );
+
+    const category = (result || "").trim().toLowerCase();
+    if (allCategories.includes(category)) {
+      return category;
+    }
+  } catch (error) {
+    console.error("AI classification error:", error);
   }
 
-  return ['reception'];
-};
-
-// Backward compatibility: single category classification
-const classifyCategory = async (text) => {
-  const categories = await classifyCategories(text);
-  return categories[0] || 'reception';
+  // Fallback to reception if AI fails
+  return "reception";
 };
 
 // @desc    Handle AI chat for guests
@@ -128,7 +202,7 @@ exports.chatWithAI = async (req, res) => {
     if (!message || !guestInfo) {
       return res.status(400).json({
         success: false,
-        message: 'Message and guest info are required'
+        message: "Message and guest info are required",
       });
     }
 
@@ -149,32 +223,48 @@ Examples:
 
     // Prepare conversation for Mistral AI
     const messages = [
-      { role: 'system', content: systemPrompt },
-      ...conversationHistory.map(msg => ({
+      { role: "system", content: systemPrompt },
+      ...conversationHistory.map((msg) => ({
         role: msg.role,
-        content: msg.content
+        content: msg.content,
       })),
-      { role: 'user', content: message }
+      { role: "user", content: message },
     ];
 
     // Call Mistral AI API with enhanced logic
     let aiResponse;
     let shouldCreateTicket = false;
-    let urgencyLevel = 'medium';
+    let urgencyLevel = "medium";
 
     try {
       aiResponse = await callMistralAI(messages, 50);
 
       // Enhanced logic to determine if ticket should be created
       const serviceKeywords = [
-        'room service', 'housekeeping', 'maintenance', 'clean', 'towels', 'pillows', 
-        'temperature', 'hot water', 'cold', 'repair', 'fix', 'help', 'staff', 
-        'manager', 'complaint', 'problem', 'issue', 'request'
+        "room service",
+        "housekeeping",
+        "maintenance",
+        "clean",
+        "towels",
+        "pillows",
+        "temperature",
+        "hot water",
+        "cold",
+        "repair",
+        "fix",
+        "help",
+        "staff",
+        "manager",
+        "complaint",
+        "problem",
+        "issue",
+        "request",
       ];
-      
-      const needsService = serviceKeywords.some(keyword => 
-        message.toLowerCase().includes(keyword) || 
-        aiResponse.toLowerCase().includes('service request')
+
+      const needsService = serviceKeywords.some(
+        (keyword) =>
+          message.toLowerCase().includes(keyword) ||
+          aiResponse.toLowerCase().includes("service request")
       );
 
       if (needsService) {
@@ -182,23 +272,25 @@ Examples:
       }
 
       // If AI response suggests creating a ticket, set the flag
-      if (aiResponse.toLowerCase().includes('service request') || 
-          aiResponse.toLowerCase().includes('staff') ||
-          aiResponse.toLowerCase().includes('help you with that')) {
+      if (
+        aiResponse.toLowerCase().includes("service request") ||
+        aiResponse.toLowerCase().includes("staff") ||
+        aiResponse.toLowerCase().includes("help you with that")
+      ) {
         shouldCreateTicket = true;
       }
-
     } catch (mistralError) {
-      console.error('Mistral AI API error:', mistralError);
-      
+      console.error("Mistral AI API error:", mistralError);
+
       // Personal service fallback responses
       const fallbackResponses = [
         `I'll take care of that for you right away!`,
         `Sure, give me a few minutes to help.`,
-        `I'll handle that for you shortly.`
+        `I'll handle that for you shortly.`,
       ];
-      
-      aiResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+
+      aiResponse =
+        fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
       shouldCreateTicket = true;
     }
 
@@ -210,14 +302,13 @@ Examples:
       message: aiResponse,
       shouldCreateTicket,
       timestamp: new Date(),
-      conversationId: `${guestInfo.roomNumber}-${Date.now()}`
+      conversationId: `${guestInfo.roomNumber}-${Date.now()}`,
     });
-
   } catch (error) {
-    console.error('Chat AI error:', error);
+    console.error("Chat AI error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to process chat message'
+      message: "Failed to process chat message",
     });
   }
 };
@@ -238,16 +329,25 @@ const generateTicketSubject = async (message) => {
 Request: "${message}"
 
 Respond with ONLY the subject line (4-5 words, title case, include quantities/specifics):`;
-    
-    const subject = await callMistralAI([
-      { role: 'system', content: 'You generate concise, professional hotel service request subjects.' },
-      { role: 'user', content: prompt }
-    ], 10);
-    
-    const cleanSubject = (subject || '').trim().replace(/["']/g, '');
-    return cleanSubject.length > 0 && cleanSubject.length <= 50 ? cleanSubject : 'Service Request';
+
+    const subject = await callMistralAI(
+      [
+        {
+          role: "system",
+          content:
+            "You generate concise, professional hotel service request subjects.",
+        },
+        { role: "user", content: prompt },
+      ],
+      10
+    );
+
+    const cleanSubject = (subject || "").trim().replace(/["']/g, "");
+    return cleanSubject.length > 0 && cleanSubject.length <= 50
+      ? cleanSubject
+      : "Service Request";
   } catch (e) {
-    return 'Service Request';
+    return "Service Request";
   }
 };
 
@@ -256,12 +356,17 @@ Respond with ONLY the subject line (4-5 words, title case, include quantities/sp
 // @access  Public
 exports.createGuestTicket = async (req, res) => {
   try {
-    const { roomNumber, guestInfo, initialMessage, conversationHistory = [] } = req.body;
+    const {
+      roomNumber,
+      guestInfo,
+      initialMessage,
+      conversationHistory = [],
+    } = req.body;
 
     if (!roomNumber || !guestInfo || !initialMessage) {
       return res.status(400).json({
         success: false,
-        message: 'Room number, guest info, and initial message are required'
+        message: "Room number, guest info, and initial message are required",
       });
     }
 
@@ -270,97 +375,95 @@ exports.createGuestTicket = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         success: false,
-        message: 'Room not found'
+        message: "Room not found",
       });
     }
 
     // Format conversation history for professional display
-    const formattedConversation = conversationHistory.map(msg => ({
+    const formattedConversation = conversationHistory.map((msg) => ({
       content: msg.content,
-      sender: msg.role === 'user' ? 'guest' : 'ai_assistant',
-      senderName: msg.role === 'user' ? guestInfo.name : 'AI Assistant',
-      timestamp: msg.timestamp || new Date().toISOString()
+      sender: msg.role === "user" ? "guest" : "ai_assistant",
+      senderName: msg.role === "user" ? guestInfo.name : "AI Assistant",
+      timestamp: msg.timestamp || new Date().toISOString(),
     }));
 
     // Create summary for the ticket
     const conversationSummary = `Guest Chat Summary:
-${conversationHistory.map(msg => 
-  `${msg.role === 'user' ? guestInfo.name : 'AI Assistant'}: ${msg.content}`
-).join('\n')}
+${conversationHistory
+  .map(
+    (msg) =>
+      `${msg.role === "user" ? guestInfo.name : "AI Assistant"}: ${msg.content}`
+  )
+  .join("\n")}
 
 Current Request: ${initialMessage}`;
 
-    // Determine categories using AI + heuristics
-    let categories = ['reception'];
-    let category = 'reception';
+    // Determine single category using enhanced AI classification
+    let category = "reception";
     try {
-      categories = await classifyCategories(initialMessage);
-      category = categories[0] || 'reception';
-      console.log('🔍 Classification Debug:', {
+      category = await classifyCategory(initialMessage);
+      console.log("🔍 Single Category Classification:", {
         initialMessage,
-        detectedCategories: categories,
-        primaryCategory: category
+        detectedCategory: category,
       });
     } catch (error) {
-      console.error('Classification error:', error);
+      console.error("Classification error:", error);
       /* keep default */
     }
 
     // Generate meaningful subject
     const subject = await generateTicketSubject(initialMessage);
 
-    // Create the ticket with conversation history and multiple categories
+    // Create the ticket with single category
     const ticket = await Ticket.create({
       room: room._id,
       roomNumber: roomNumber,
-      categories,
-      category, // Keep for backward compatibility
+      category: category, // Single category only
       guestInfo: {
         name: guestInfo.name,
-        email: guestInfo.email || '',
-        phone: guestInfo.phone || ''
+        email: guestInfo.email || "",
+        phone: guestInfo.phone || "",
       },
-      status: 'raised',
+      status: "raised",
       manager: room.manager,
       subject: subject,
       messages: [
         ...formattedConversation,
         {
           content: `🎫 Service Request Created\n\n${initialMessage}`,
-          sender: 'system',
-          senderName: 'System',
-          timestamp: new Date().toISOString()
-        }
-      ]
+          sender: "system",
+          senderName: "System",
+          timestamp: new Date().toISOString(),
+        },
+      ],
     });
 
     // Populate the ticket with room details
-    await ticket.populate('room');
+    await ticket.populate("room");
 
     // Emit real-time notification to managers
-    if (req.app && req.app.get('io')) {
-      const io = req.app.get('io');
-      io.emit('newTicket', {
+    if (req.app && req.app.get("io")) {
+      const io = req.app.get("io");
+      io.emit("newTicket", {
         ticket,
         notification: {
-          title: 'New Service Request',
+          title: "New Service Request",
           message: `${guestInfo.name} from Room ${roomNumber} needs assistance`,
-          timestamp: new Date().toISOString()
-        }
+          timestamp: new Date().toISOString(),
+        },
       });
     }
 
     res.status(201).json({
       success: true,
-      message: 'Service request created successfully',
-      data: ticket
+      message: "Service request created successfully",
+      data: ticket,
     });
-
   } catch (error) {
-    console.error('Create guest ticket error:', error);
+    console.error("Create guest ticket error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to create service request'
+      message: "Failed to create service request",
     });
   }
 };
@@ -375,15 +478,15 @@ exports.managerAIAssist = async (req, res) => {
     if (!ticketId || !conversationHistory) {
       return res.status(400).json({
         success: false,
-        message: 'Ticket ID and conversation history are required'
+        message: "Ticket ID and conversation history are required",
       });
     }
 
-    const ticket = await Ticket.findById(ticketId).populate('room');
+    const ticket = await Ticket.findById(ticketId).populate("room");
     if (!ticket) {
       return res.status(404).json({
         success: false,
-        message: 'Ticket not found'
+        message: "Ticket not found",
       });
     }
 
@@ -392,7 +495,7 @@ exports.managerAIAssist = async (req, res) => {
 
 Guest: ${ticket.guestInfo.name}
 Room: ${ticket.roomNumber}
-Request Type: ${requestType || 'General'}
+Request Type: ${requestType || "General"}
 
 Based on the conversation history, suggest a professional and helpful response that:
 1. Acknowledges the guest's request
@@ -404,11 +507,11 @@ Keep the response concise and actionable. Focus on customer service excellence.`
 
     try {
       const messages = [
-        { role: 'system', content: systemPrompt },
-        ...conversationHistory.map(msg => ({
-          role: msg.sender === 'guest' ? 'user' : 'assistant',
-          content: msg.content
-        }))
+        { role: "system", content: systemPrompt },
+        ...conversationHistory.map((msg) => ({
+          role: msg.sender === "guest" ? "user" : "assistant",
+          content: msg.content,
+        })),
       ];
 
       const suggestion = await callMistralAI(messages, 200);
@@ -416,27 +519,25 @@ Keep the response concise and actionable. Focus on customer service excellence.`
       res.json({
         success: true,
         suggestion,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
-
     } catch (mistralError) {
-      console.error('Mistral AI API error:', mistralError);
-      
+      console.error("Mistral AI API error:", mistralError);
+
       // Fallback suggestion
       const fallbackSuggestion = `Thank you for bringing this to our attention, ${ticket.guestInfo.name}. We understand your concern and will address this promptly within 30 minutes.`;
-      
+
       res.json({
         success: true,
         suggestion: fallbackSuggestion,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
-
   } catch (error) {
-    console.error('Manager AI assist error:', error);
+    console.error("Manager AI assist error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to get AI assistance'
+      message: "Failed to get AI assistance",
     });
   }
 };
