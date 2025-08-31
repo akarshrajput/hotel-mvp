@@ -110,7 +110,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white dark:bg-white">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md border-none shadow-lg">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">
             {showOTP ? 'Verify Your Email' : 'Create an account'}
