@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -144,17 +145,36 @@ export default function RoomsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <motion.div 
+        className="flex items-center justify-center h-64"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <motion.div 
+          className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        />
+      </motion.div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background/50">
+    <motion.div 
+      className="min-h-screen bg-background/50"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       <div className="container mx-auto px-4 py-6 space-y-8">
         {/* Enhanced Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <motion.div 
+          className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6"
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+        >
           <div className="space-y-2">
             <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
               Room Management
@@ -162,30 +182,40 @@ export default function RoomsPage() {
             <p className="text-muted-foreground text-lg">
               Manage hotel rooms, view QR codes, and track status
             </p>
-        </div>
-          <Button onClick={openCreateDialog} className="shadow-sm">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Room
-        </Button>
-      </div>
+          </div>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Button onClick={openCreateDialog} className="shadow-sm border-none">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Room
+            </Button>
+          </motion.div>
+        </motion.div>
 
         {/* Enhanced Filters and Search */}
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-6">
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <Card className="border-none shadow-lg">
+            <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row gap-4">
         <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
                   placeholder="Search rooms by number, type, or floor..."
-                  className="pl-10 h-11 border-0 bg-muted/50 focus:bg-background transition-colors"
+                  className="pl-10 h-11 border-none bg-muted/50 focus:bg-background transition-colors"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
               <div className="flex flex-col sm:flex-row gap-3">
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-full sm:w-[180px] h-11 border-0 bg-muted/50 focus:bg-background transition-colors">
+                  <SelectTrigger className="w-full sm:w-[180px] h-11 border-none bg-muted/50 focus:bg-background transition-colors">
                     <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
@@ -195,12 +225,12 @@ export default function RoomsPage() {
               <SelectItem value="maintenance">Maintenance</SelectItem>
             </SelectContent>
           </Select>
-                <div className="flex border-0 rounded-lg overflow-hidden bg-muted/50">
+                <div className="flex border-none rounded-lg overflow-hidden bg-muted/50">
             <Button
               variant={viewMode === 'grid' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('grid')}
-                    className="rounded-r-none h-11 border-0 bg-transparent hover:bg-background data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                    className="rounded-r-none h-11 border-none bg-transparent hover:bg-background data-[state=on]:bg-background data-[state=on]:shadow-sm"
             >
               <Grid className="h-4 w-4" />
             </Button>
@@ -208,7 +238,7 @@ export default function RoomsPage() {
               variant={viewMode === 'list' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('list')}
-                    className="rounded-l-none h-11 border-0 bg-transparent hover:bg-background data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                    className="rounded-l-none h-11 border-none bg-transparent hover:bg-background data-[state=on]:bg-background data-[state=on]:shadow-sm"
             >
               <List className="h-4 w-4" />
             </Button>
@@ -217,9 +247,15 @@ export default function RoomsPage() {
       </div>
           </CardContent>
         </Card>
+        </motion.div>
 
         {/* Enhanced Rooms Display */}
-        <Card className="border-0 shadow-sm">
+        <motion.div
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+        >
+          <Card className="border-none shadow-lg">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -249,10 +285,15 @@ export default function RoomsPage() {
                 }
               </p>
               {!searchQuery && filterStatus === 'all' && (
-                  <Button onClick={openCreateDialog} className="shadow-sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                    Add Your First Room
-                </Button>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Button onClick={openCreateDialog} className="shadow-sm border-none">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Your First Room
+                    </Button>
+                  </motion.div>
               )}
             </div>
           ) : viewMode === 'list' ? (
@@ -290,7 +331,8 @@ export default function RoomsPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+          </Card>
+        </motion.div>
 
       {/* Room Detail Dialog */}
       <RoomDetailDialog 
@@ -317,6 +359,7 @@ export default function RoomsPage() {
                 <Label htmlFor="number">Room Number</Label>
                 <Input
                   id="number"
+                  className="border-none"
                   value={formData.number}
                   onChange={(e) => setFormData({ ...formData, number: e.target.value })}
                   required
@@ -328,7 +371,7 @@ export default function RoomsPage() {
                   value={formData.type}
                   onValueChange={(value) => setFormData({ ...formData, type: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="border-none">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -347,6 +390,7 @@ export default function RoomsPage() {
                   id="floor"
                   type="number"
                   min="1"
+                  className="border-none"
                   value={formData.floor}
                   onChange={(e) => setFormData({ ...formData, floor: parseInt(e.target.value) })}
                   required
@@ -358,7 +402,7 @@ export default function RoomsPage() {
                   value={formData.status}
                   onValueChange={(value: Room['status']) => setFormData({ ...formData, status: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="border-none">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -371,10 +415,10 @@ export default function RoomsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button type="button" variant="outline" className="border-none" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" className="border-none">
                 {editingRoom ? 'Update Room' : 'Add Room'}
               </Button>
             </DialogFooter>
@@ -382,6 +426,6 @@ export default function RoomsPage() {
         </DialogContent>
       </Dialog>
       </div>
-    </div>
+    </motion.div>
   );
 }

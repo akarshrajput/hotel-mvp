@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +36,13 @@ export function RoomCard({ room, onViewDetails }: RoomCardProps) {
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      whileHover={{ y: -5, scale: 1.02 }}
+    >
+      <Card className="hover:shadow-md transition-shadow border-none shadow-lg">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -68,17 +75,23 @@ export function RoomCard({ room, onViewDetails }: RoomCardProps) {
             <span>{room.qrCode ? 'QR Available' : 'No QR Code'}</span>
           </div>
           
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => onViewDetails(room)}
-            className="flex items-center gap-1"
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
-            <Eye className="h-3 w-3" />
-            View Details
-          </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => onViewDetails(room)}
+              className="flex items-center gap-1 border-none"
+            >
+              <Eye className="h-3 w-3" />
+              View Details
+            </Button>
+          </motion.div>
         </div>
       </CardContent>
     </Card>
+    </motion.div>
   );
 }

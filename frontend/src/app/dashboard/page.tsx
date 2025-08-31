@@ -56,6 +56,7 @@ import { apiClient } from "@/lib/api/client";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import io from "socket.io-client";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Message {
   _id: string;
@@ -105,62 +106,9 @@ const getCategoryColor = (category?: Ticket["category"]) => {
   }
 };
 
-const inferCategories = (ticket: Ticket): Ticket["category"][] => {
-  // Use the new categories array if available, otherwise fall back to single category or inference
-  if (ticket.categories && ticket.categories.length > 0) {
-    return ticket.categories;
-  }
-  if (ticket.category) return [ticket.category];
-
-  // Infer categories from message content
-  const text = `${ticket.messages?.map((m) => m.content).join(" ") || ""} ${
-    ticket.roomNumber || ""
-  }`.toLowerCase();
-  const categories: Ticket["category"][] = [];
-
-  if (
-    /(clean|towel|linen|sheet|housekeep|trash|amenit|bed|pillow|bathroom|soap|shampoo|tissue|toilet paper|extra|replace|fresh)/.test(
-      text
-    )
-  )
-    categories.push("housekeeping");
-  if (
-    /(luggage|baggage|bags|bell ?(boy|hop)|porter|trolley|cart|carry|help with bags|suitcase|move|transport luggage)/.test(
-      text
-    )
-  )
-    categories.push("porter");
-  if (
-    /(break|broken|leak|ac|heater|hvac|power|door|plumb|fix|repair|not working|maintenance|light|electrical|bulb|switch|outlet|temperature|hot|cold)/.test(
-      text
-    )
-  )
-    categories.push("maintenance");
-  if (
-    /(food|breakfast|dinner|lunch|menu|order|restaurant|bar|drink|beverage|room service|coffe[e]?|tea|water|snack|meal|dining|kitchen|hungry|thirsty|eat|cafe|cappuccino|espresso|latte|juice|soda|beer|wine|cocktail)/.test(
-      text
-    )
-  )
-    categories.push("service_fb");
-  if (
-    /(taxi|uber|cab|transport|reservation|book|tour|attraction|recommend|directions|concierge|restaurant|show|ticket|car|vehicle|driver|airport|train|bus|sightseeing|local|city|map)/.test(
-      text
-    )
-  )
-    categories.push("concierge");
-  if (
-    /(check[- ]?in|check[- ]?out|bill|payment|key|card|front desk|reception|invoice|checkout|room key|car key|safe|deposit|account|charge|credit|debit)/.test(
-      text
-    )
-  )
-    categories.push("reception");
-
-  return categories.length > 0 ? categories : ["reception"];
-};
-
-const inferCategory = (ticket: Ticket): Ticket["category"] => {
-  const categories = inferCategories(ticket);
-  return categories[0] || "reception";
+// Get single category from ticket (no inference needed - AI already classified)
+const getTicketCategory = (ticket: Ticket): Ticket["category"] => {
+  return ticket.category || "reception";
 };
 
 interface Ticket {
@@ -174,14 +122,6 @@ interface Ticket {
         floor?: number;
       };
   roomNumber: string;
-  categories?: (
-    | "reception"
-    | "housekeeping"
-    | "porter"
-    | "concierge"
-    | "service_fb"
-    | "maintenance"
-  )[];
   category?:
     | "reception"
     | "housekeeping"
@@ -565,10 +505,10 @@ export default function DashboardPage() {
       filtered = filtered.filter((ticket) => ticket.roomNumber === filterRoom);
     }
 
-    // Category filter (defaults to all) - now supports multiple categories per ticket
+    // Category filter (defaults to all) - single category per ticket
     filtered = filtered.filter((ticket) => {
-      const ticketCategories = inferCategories(ticket);
-      return ticketCategories.some((cat) => selectedCategories.includes(cat));
+      const ticketCategory = getTicketCategory(ticket);
+      return selectedCategories.includes(ticketCategory);
     });
 
     return filtered;
@@ -615,10 +555,20 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <motion.div 
+      className="min-h-screen bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       <div className="container mx-auto px-6 py-8 space-y-8">
         {/* Enhanced Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <motion.div 
+          className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6"
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+        >
           <div className="space-y-2">
             <h1 className="text-4xl font-bold tracking-tight text-foreground">
               Service Dashboard
@@ -627,11 +577,16 @@ export default function DashboardPage() {
               Manage guest requests and hotel operations
             </p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Enhanced Stats Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="border shadow-sm">
+        <motion.div 
+          className="grid gap-6 md:grid-cols-2 lg:grid-cols-4"
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.7, delay: 0.2 }}
+        >
+          <Card className="shadow-lg border-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-sm font-medium">
                 Total Tickets
@@ -652,7 +607,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="border shadow-sm">
+          <Card className="shadow-lg border-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-sm font-medium">
                 New Requests
@@ -671,7 +626,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="border shadow-sm">
+          <Card className="shadow-lg border-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-sm font-medium">In Progress</CardTitle>
               <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -688,7 +643,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="border shadow-sm">
+          <Card className="shadow-lg border-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-sm font-medium">Completed</CardTitle>
               <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -704,10 +659,15 @@ export default function DashboardPage() {
               </p>
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
 
         {/* Enhanced Filters */}
-        <Card className="border shadow-sm">
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+        >
+          <Card className="shadow-lg border-none">
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row gap-4">
               <div className="relative flex-1">
@@ -715,7 +675,7 @@ export default function DashboardPage() {
                 <Input
                   type="search"
                   placeholder="Search tickets by guest name, room number, or message content..."
-                  className="pl-10 h-11"
+                  className="pl-10 h-11 border-none"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -746,7 +706,7 @@ export default function DashboardPage() {
                       setFilterRoom(null);
                       setSearchQuery("");
                     }}
-                    className="h-11"
+                    className="h-11 border-none"
                   >
                     Clear Filters
                   </Button>
@@ -758,11 +718,11 @@ export default function DashboardPage() {
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 variant={
-                  selectedCategories.length === allCategories.length
+                  selectedCategories.length === 0
                     ? "default"
                     : "outline"
                 }
-                className="h-9"
+                className="h-9 border-none"
                 onClick={() => handleSelectCategory("all")}
               >
                 All
@@ -776,7 +736,7 @@ export default function DashboardPage() {
                       ? "default"
                       : "outline"
                   }
-                  className="h-9"
+                  className="h-9 border-none"
                   onClick={() => handleSelectCategory(cat)}
                 >
                   {getCategoryLabel(cat)}
@@ -785,6 +745,7 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
 
         {/* Enhanced Kanban Board */}
         <DndContext
@@ -796,7 +757,7 @@ export default function DashboardPage() {
           <div className="flex gap-6 overflow-x-auto pb-6 h-[calc(100vh-200px)]">
             {/* New Requests Column */}
             <DroppableColumn id="raised">
-              <Card className="h-full border shadow-sm">
+              <Card className="h-full shadow-lg border-none">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -834,7 +795,7 @@ export default function DashboardPage() {
 
             {/* In Progress Column */}
             <DroppableColumn id="in_progress">
-              <Card className="h-full border shadow-sm">
+              <Card className="h-full shadow-lg border-none">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -872,7 +833,7 @@ export default function DashboardPage() {
 
             {/* Completed Column */}
             <DroppableColumn id="completed">
-              <Card className="h-full border shadow-sm">
+              <Card className="h-full shadow-lg border-none">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -912,7 +873,7 @@ export default function DashboardPage() {
           {/* Enhanced Drag Overlay */}
           {activeTicket && (
             <DragOverlay>
-              <div className="bg-card border rounded-xl p-4 shadow-2xl ring-2 ring-primary/20 scale-105 rotate-1">
+              <div className="bg-card shadow-2xl rounded-xl p-4 scale-105 rotate-1">
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <h3 className="font-medium text-sm line-clamp-1">
@@ -923,16 +884,12 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    {inferCategories(activeTicket).map((cat, index) => (
-                      <span
-                        key={index}
-                        className={`px-2 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(
-                          cat
-                        )}`}
-                      >
-                        {getCategoryLabel(cat)}
-                      </span>
-                    ))}
+                    <Badge
+                      variant="secondary"
+                      className={`text-xs ${getCategoryColor(getTicketCategory(activeTicket))}`}
+                    >
+                      {getTicketCategory(activeTicket)?.replace("_", " ").toUpperCase()}
+                    </Badge>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground line-clamp-2">
@@ -1144,12 +1101,20 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <p className="text-sm text-blue-700 mb-2">{aiSuggestion}</p>
+                    <div className="mb-2">
+                      <Badge
+                        variant="secondary"
+                        className={`text-xs ${getCategoryColor(getTicketCategory(selectedTicket))}`}
+                      >
+                        {getTicketCategory(selectedTicket)?.replace("_", " ").toUpperCase()}
+                      </Badge>
+                    </div>
                     <div className="flex gap-2">
                       <Button
                         onClick={useAISuggestion}
                         size="sm"
                         variant="outline"
-                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                        className="text-blue-600 border-none hover:bg-blue-50"
                       >
                         Use This Response
                       </Button>
@@ -1157,7 +1122,7 @@ export default function DashboardPage() {
                         onClick={() => setAiSuggestion("")}
                         size="sm"
                         variant="ghost"
-                        className="text-blue-600"
+                        className="text-blue-600 border-none"
                       >
                         Dismiss
                       </Button>
@@ -1172,7 +1137,7 @@ export default function DashboardPage() {
                       disabled={isLoadingAI}
                       variant="outline"
                       size="sm"
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 border-none"
                     >
                       {isLoadingAI ? (
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1188,13 +1153,14 @@ export default function DashboardPage() {
                       placeholder="Type your message..."
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      className="flex-1"
+                      className="flex-1 border-none"
                       rows={3}
                     />
                     <Button
                       onClick={handleSendMessage}
                       disabled={isLoading || !newMessage.trim()}
                       size="sm"
+                      className="border-none"
                     >
                       <Send className="h-4 w-4" />
                     </Button>
@@ -1205,7 +1171,7 @@ export default function DashboardPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1264,8 +1230,8 @@ function DraggableTicketCard({
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`bg-card border rounded-lg p-4 cursor-grab active:cursor-grabbing hover:shadow-md transition-all duration-200 ${
-        isDragging ? "shadow-2xl ring-2 ring-primary/30 scale-105 rotate-2" : ""
+      className={`bg-card border-none shadow-md rounded-lg p-4 cursor-grab active:cursor-grabbing hover:shadow-lg transition-all duration-200 ${
+        isDragging ? "shadow-2xl scale-105 rotate-2" : ""
       }`}
     >
       <div className="flex items-start justify-between mb-2">
@@ -1278,16 +1244,13 @@ function DraggableTicketCard({
           </p>
         </div>
         <div className="flex items-center gap-1 flex-wrap">
-          {inferCategories(ticket).map((cat, index) => (
-            <span
-              key={index}
-              className={`px-2 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(
-                cat
-              )}`}
-            >
-              {getCategoryLabel(cat)}
-            </span>
-          ))}
+          <span
+            className={`px-2 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(
+              getTicketCategory(ticket)
+            )}`}
+          >
+            {getCategoryLabel(getTicketCategory(ticket))}
+          </span>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -196,17 +197,37 @@ export default function TicketsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
+      <motion.div 
+        className="flex items-center justify-center h-64"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        >
+          <Loader2 className="h-8 w-8" />
+        </motion.div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background/50">
+    <motion.div 
+      className="min-h-screen bg-background/50"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       <div className="container mx-auto px-4 py-6 space-y-8">
         {/* Enhanced Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <motion.div 
+          className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6"
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+        >
           <div className="space-y-2">
             <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
               Service Requests
@@ -215,10 +236,15 @@ export default function TicketsPage() {
               Manage guest service requests and tickets
             </p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Enhanced Filters */}
-        <Card className="border-0 shadow-sm">
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <Card className="border-none shadow-lg">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -243,13 +269,13 @@ export default function TicketsPage() {
                   placeholder="Search by guest name, room number, or ticket ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-11 border-0 bg-muted/50 focus:bg-background transition-colors"
+                    className="pl-10 h-11 border-none bg-muted/50 focus:bg-background transition-colors"
                 />
               </div>
             </div>
               <div className="flex flex-col sm:flex-row gap-3">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-[180px] h-11 border-0 bg-muted/50 focus:bg-background transition-colors">
+                  <SelectTrigger className="w-full sm:w-[180px] h-11 border-none bg-muted/50 focus:bg-background transition-colors">
                     <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -260,7 +286,7 @@ export default function TicketsPage() {
               </SelectContent>
             </Select>
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                  <SelectTrigger className="w-full sm:w-[180px] h-11 border-0 bg-muted/50 focus:bg-background transition-colors">
+                  <SelectTrigger className="w-full sm:w-[180px] h-11 border-none bg-muted/50 focus:bg-background transition-colors">
                     <SelectValue placeholder="Filter by priority" />
               </SelectTrigger>
               <SelectContent>
@@ -274,9 +300,15 @@ export default function TicketsPage() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
 
       {/* Enhanced Tickets Table */}
-      <Card className="border-0 shadow-sm">
+      <motion.div
+        initial={{ y: 30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6, delay: 0.3 }}
+      >
+        <Card className="border-none shadow-lg">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -312,7 +344,7 @@ export default function TicketsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge className={`${getCategoryColor(inferCategory(ticket))} border-0 font-medium`}>
+                    <Badge className={`${getCategoryColor(inferCategory(ticket))} border-none font-medium`}>
                       {getCategoryLabel(inferCategory(ticket))}
                     </Badge>
                   </TableCell>
@@ -324,7 +356,7 @@ export default function TicketsPage() {
                   <TableCell>
                     <Badge 
                       variant="outline"
-                      className={`${getPriorityColor(ticket.priority)} border-0 font-medium`}
+                      className={`${getPriorityColor(ticket.priority)} border-none font-medium`}
                     >
                       {ticket.priority}
                     </Badge>
@@ -341,7 +373,7 @@ export default function TicketsPage() {
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 border-none">
                           <span className="sr-only">Open menu</span>
                           <Filter className="h-4 w-4" />
                         </Button>
@@ -379,7 +411,8 @@ export default function TicketsPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </motion.div>
 
       {/* Ticket Detail Dialog */}
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
@@ -436,13 +469,14 @@ export default function TicketsPage() {
                     placeholder="Type your response..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    className="flex-1"
+                    className="flex-1 border-none"
                     rows={3}
                   />
                   <Button 
                     onClick={handleSendMessage} 
                     disabled={isSubmitting || !newMessage.trim()}
                     size="sm"
+                    className="border-none"
                   >
                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send'}
                   </Button>
@@ -453,6 +487,6 @@ export default function TicketsPage() {
         </DialogContent>
       </Dialog>
       </div>
-    </div>
+    </motion.div>
   );
 }
